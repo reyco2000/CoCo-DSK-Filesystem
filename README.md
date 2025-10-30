@@ -2,7 +2,7 @@
 
 A Python tool for managing TRS-80 Color Computer DSK/JVC disk images. This tool allows you to mount, inspect, and transfer files between Color Computer disk images and your PC.
 
-Based on the [dsktools library](https://github.com/mseminatore/dsktools/) by mseminatore.
+Based on the C program [dsktools library](https://github.com/mseminatore/dsktools/) by mseminatore.
 
 ## Features
 
