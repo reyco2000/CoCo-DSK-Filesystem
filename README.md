@@ -235,6 +235,4 @@ Maximum 72 files per disk. You'll need to use a new disk image.
 
 Based on dsktools by mseminatore. This tool is provided for educational and preservation purposes.
 
-## Contributing
 
-For issues or improvements related to the underlying disk format handling, please refer to the original [dsktools repository](https://github.com/mseminatore/dsktools/).
