@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
 TRS-80 Color Computer DSK/JVC File System Tool
+Coded by ChipShift Reyco2000@gmail.com Using Claude Code
+(C) 2025
 
-Based on the dsktools library by mseminatore
+Based on the  C dsktools library by mseminatore
 https://github.com/mseminatore/dsktools/
 
 This script allows you to:
