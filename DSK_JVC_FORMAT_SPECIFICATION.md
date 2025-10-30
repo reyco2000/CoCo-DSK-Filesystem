@@ -1244,7 +1244,7 @@ This document is provided for educational purposes to preserve and document the 
 - dsktools library documentation by Mark Seminatore
 - Community documentation and reverse engineering
 
-**Created by**: Claude Code based on dsktools and CoCo community resources
+**Created by**: Reyco2000@gmail.com using Claude Code. 
 
 ---
 
