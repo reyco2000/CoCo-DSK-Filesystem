@@ -2,13 +2,18 @@
 """
 TRS-80 Color Computer DSK/JVC File System Tool
 
-Based on the dsktools library by mseminatore
+Coded by ChipShift Reyco2000@gmail.com Using Claude Code
+(C) 2025
+
+Based on the C dsktools library by mseminatore
 https://github.com/mseminatore/dsktools/
 
 This script allows you to:
 - Mount and inspect DSK/JVC disk images
 - Copy files from DSK to PC
 - Upload files from PC to DSK
+- Delete files from DSK images
+- Format new blank DSK images
 
 DSK Format Details:
 - Sector size: 256 bytes

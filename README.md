@@ -328,6 +328,14 @@ Maximum 72 files per disk. You'll need to use a new disk image.
 
 Based on dsktools by mseminatore. This tool is provided for educational and preservation purposes.
 
+## Authoring
+
+Made with ❤️ by Reinaldo Torres — a proud CoCo enthusiast 📧 reyco2000@gmail.com
+
+🟢 Proud member and co-creator of the CoCoByte Club https://cocobyte.co/
+
+🔗 See more on @ChipShift https://github.com/reyco2000/
+
 ## Contributing
 
 For issues or improvements related to the underlying disk format handling, please refer to the original [dsktools repository](https://github.com/mseminatore/dsktools/).
