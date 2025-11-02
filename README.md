@@ -4,6 +4,29 @@ A Python tool for managing TRS-80 Color Computer DSK/JVC disk images. This tool 
 
 Based on the [dsktools library](https://github.com/mseminatore/dsktools/) by mseminatore.
 
+## Two Ways to Use
+
+### 1. CoCo Commander - Norton Commander-style TUI (NEW!)
+
+A full-featured text-based UI with dual-pane file management:
+
+```bash
+python3 coco_commander.py
+```
+
+**Features:**
+- Dual-pane interface (PC files ↔ DSK image)
+- F2: Info | F3: View | F4: Edit | F5: Copy | F6: Rename | F7: Format | F8: Delete
+- Navigate with arrow keys and TAB
+- Built-in hex/text viewer and editor
+- Visual file management like Norton Commander
+
+See [COCO_COMMANDER_GUIDE.md](COCO_COMMANDER_GUIDE.md) for complete documentation.
+
+### 2. Command-Line Tool - coco_dsk.py
+
+Traditional command-line interface for scripting and automation.
+
 ## Features
 
 - **Mount DSK/JVC disk images** - Parse and read Color Computer disk images
