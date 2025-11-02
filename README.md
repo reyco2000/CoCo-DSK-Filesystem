@@ -231,4 +231,10 @@ Maximum 72 files per disk. You'll need to use a new disk image.
 - [JVC Disk Image Format](http://www.tim-mann.org/trs80/dsk.html)
 
 
+## Authoring
 
+Made with ❤️ by Reinaldo Torres — a proud CoCo enthusiast 📧 reyco2000@gmail.com
+
+🟢 Proud member and co-creator of the CoCoByte Club https://cocobyte.co/
+
+🔗 See more on @ChipShift https://github.com/reyco2000/
