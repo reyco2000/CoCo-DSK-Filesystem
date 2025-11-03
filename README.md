@@ -6,6 +6,45 @@ A Python tool for managing TRS-80 Color Computer DSK/JVC disk images. This tool 
 
 Based on the [dsktools library](https://github.com/mseminatore/dsktools/) by mseminatore.
 
+## Quick Start
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/reyco2000/CoCo-DSK-Filesystem.git
+   cd CoCo-DSK-Filesystem
+   ```
+
+2. **Install requirements (if needed):**
+
+   **Linux / macOS / WSL:**
+   ```bash
+   # No installation needed! Works out of the box with Python 3.6+
+   python3 coco_commander_v1.py
+   ```
+
+   **Windows (Native):**
+   ```bash
+   # Install curses support for Windows
+   pip install -r requirements.txt
+
+   # Then run
+   python coco_commander_v1.py
+   ```
+
+3. **You're ready to go!**
+   ```bash
+   # Run CoCo Commander V1 (with detokenization)
+   python3 coco_commander_v1.py
+
+   # Or run standard version
+   python3 coco_commander.py
+
+   # Or use command-line tool
+   python3 coco_dsk.py mydisk.dsk -l
+   ```
+
 ## Two Ways to Use
 
 ### 1. CoCo Commander - Norton Commander-style TUI
@@ -91,9 +130,30 @@ The flagship feature of v1.0 is the new **CoCo Commander V1** with integrated BA
 
 ## Requirements
 
-- Python 3.6 or higher
-- No external dependencies required (uses standard library only)
-- For V1: `coco_detokenizer.py` in same directory as `coco_commander_v1.py`
+### System Requirements
+
+- **Python**: 3.6 or higher (3.7+ recommended)
+- **Operating System**: Linux, macOS, Windows, or WSL
+
+### Dependencies
+
+**Good news!** No external dependencies required on Linux/macOS/WSL - everything uses Python's standard library.
+
+**Windows users:** One optional package for curses support:
+```bash
+pip install -r requirements.txt
+```
+
+This installs `windows-curses` which enables the text-based UI on Windows.
+
+**What's included in requirements.txt:**
+- `windows-curses>=2.3.0` (Windows only)
+- All other dependencies are part of Python's standard library
+
+### File Requirements
+
+- For **CoCo Commander V1**: `coco_detokenizer.py` must be in the same directory
+- For **Command-line tool**: `coco_dsk.py` is standalone
 
 ## Usage
 
