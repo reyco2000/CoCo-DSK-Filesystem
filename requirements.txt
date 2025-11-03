@@ -1,0 +1,11 @@
+# CoCo DSK Filesystem Tool - Requirements
+# Version 1.0
+
+# No external dependencies required!
+# All modules used are part of Python's standard library.
+
+# However, for Windows users, curses support requires:
+windows-curses>=2.3.0; platform_system == "Windows"
+
+# Python Version: 3.6+
+# Note: Python 3.7+ recommended for full dataclasses support
