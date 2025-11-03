@@ -2,10 +2,19 @@
 
 Norton Commander-style TUI for managing TRS-80 Color Computer DSK/JVC disk images.
 
+## Versions
+
+- **coco_commander.py**: Standard version - Full-featured dual-pane file manager
+- **coco_commander_v1.py**: Enhanced version with BASIC detokenization support
+
 ## Quick Start
 
 ```bash
+# Standard version
 python3 coco_commander.py
+
+# V1 with detokenization (requires coco_detokenizer.py in same directory)
+python3 coco_commander_v1.py
 ```
 
 ## Interface Layout
@@ -76,8 +85,13 @@ Bidirectional file copy between PC and DSK:
 **DSK → PC (Download)**:
 1. Select file in right panel (DSK)
 2. Press F5
-3. Enter PC filename
-4. File is downloaded to current PC directory
+3. **[V1 Only]** If file is BASIC type, you'll be asked: "Detokenize to readable text?"
+   - **Yes**: Converts tokenized BASIC to human-readable text (.txt)
+   - **No**: Downloads raw tokenized binary format
+4. Enter PC filename (auto-suggests .txt for detokenized files)
+5. File is downloaded to current PC directory
+
+**Note**: BASIC detokenization feature is only available in `coco_commander_v1.py`
 
 ### F6 - Rename (DSK Files Only)
 Rename files within DSK image:
@@ -137,9 +151,20 @@ Delete files from PC or DSK:
 ```
 1. In DSK panel (right), select file to download
 2. Press F5 (Copy)
-3. Enter PC filename (e.g., "mygame.bin")
-4. File is saved to current PC directory
-5. Press TAB to see it in PC panel
+3. [V1 Only] If BASIC file, choose Yes/No for detokenization
+4. Enter PC filename (e.g., "mygame.bin" or "program.txt")
+5. File is saved to current PC directory
+6. Press TAB to see it in PC panel
+```
+
+**V1 BASIC Detokenization Example**:
+```
+1. Select "GAME.BAS" in DSK panel
+2. Press F5
+3. Dialog: "Detokenize to readable text?" → Select Yes
+4. Filename auto-suggests "game.txt"
+5. Press ENTER to accept or edit filename
+6. File saved as readable BASIC source code
 ```
 
 ### 4. Manage DSK Files
@@ -201,6 +226,10 @@ When uploading to DSK, choose the appropriate type:
 4. **Backup First**: Always keep backup copies of important DSK images
 5. **ASCII Mode**: Use ASCII mode for text files you want to edit on the CoCo
 6. **Binary Mode**: Use Binary mode for tokenized BASIC programs and ML programs
+7. **[V1] Detokenize BASIC**: When downloading .BAS files, use detokenization to get readable source code
+8. **[V1] Edit Before Re-upload**: Detokenize, edit with F4, then use a BASIC tokenizer to re-upload
+9. **Cursor Position**: When entering filenames, cursor starts at the end for quick editing
+10. **Color Coding**: Active panel shows green selection bar (V1), inactive shows white
 
 ## Keyboard Reference Card
 
@@ -262,11 +291,23 @@ When uploading to DSK, choose the appropriate type:
 - Minimum recommended terminal size: 80x24 characters
 - Resize terminal window for better experience
 
+### "Downloaded but detokenization failed" (V1)
+- File was copied but couldn't be detokenized
+- Raw tokenized file is still saved to PC
+- File may be corrupted or not a valid BASIC file
+- Try downloading without detokenization (select "No")
+
+### Detokenizer not available (V1)
+- Ensure `coco_detokenizer.py` is in the same directory as `coco_commander_v1.py`
+- Check Python can import the module
+- Standard version doesn't include this feature
+
 ## Requirements
 
 - Python 3.6 or higher
 - curses library (included in standard Python on Linux/Mac)
 - coco_dsk.py module in the same directory
+- **[V1 Only]** coco_detokenizer.py in the same directory for BASIC detokenization
 
 ## Platform Notes
 
@@ -279,6 +320,47 @@ Works with standard Python installation.
 ### Windows
 - **Recommended**: Use WSL (Windows Subsystem for Linux)
 - **Alternative**: Install windows-curses: `pip install windows-curses`
+
+## What's New in V1
+
+### BASIC Detokenization
+The V1 version includes integrated BASIC detokenization support:
+
+- **Automatic Detection**: Recognizes BASIC files (type 0x00) when copying from DSK
+- **User Choice**: Interactive dialog asks if you want to detokenize
+- **Smart Naming**: Auto-suggests .txt extension for detokenized files
+- **Readable Output**: Converts tokenized BASIC to human-readable source code
+- **Fallback Support**: If detokenization fails, keeps the raw file
+
+### Enhanced UI
+- **Color-Coded Selection**: Active panel uses green highlight, inactive uses white
+- **Better Dialogs**: Improved Yes/No dialogs with button navigation
+- **Cursor Position**: Filename input starts with cursor at end for easy editing
+- **Tab Behavior**: Switching to DSK panel resets selection to top
+
+### File Distribution
+To use V1 with detokenization, ensure both files are in the same directory:
+- `coco_commander_v1.py`
+- `coco_detokenizer.py`
+
+## Detokenization Workflow Example
+
+```
+Traditional workflow (without V1):
+1. Download GAME.BAS from DSK (tokenized binary)
+2. Use separate detokenizer tool
+3. Get readable text
+4. Edit in external editor
+5. Use separate tokenizer
+6. Upload back to DSK
+
+V1 Integrated workflow:
+1. Press F5 on GAME.BAS in DSK panel
+2. Select "Yes" to detokenize → Readable text saved
+3. Press F4 to edit directly in CoCo Commander
+4. [Use external tokenizer if needed]
+5. Upload back to DSK
+```
 
 ## License
 

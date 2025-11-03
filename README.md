@@ -1,20 +1,43 @@
 # TRS-80 Color Computer DSK/JVC File System Tool
 
+**Version 1.0** - Now with BASIC Detokenization!
+
 A Python tool for managing TRS-80 Color Computer DSK/JVC disk images. This tool allows you to mount, inspect, and transfer files between Color Computer disk images and your PC.
 
 Based on the [dsktools library](https://github.com/mseminatore/dsktools/) by mseminatore.
 
 ## Two Ways to Use
 
-### 1. CoCo Commander - Norton Commander-style TUI (NEW!)
+### 1. CoCo Commander - Norton Commander-style TUI
 
-A full-featured text-based UI with dual-pane file management:
+Choose between two versions:
+
+#### **CoCo Commander V1** (Recommended - NEW in v1.0!)
+
+Enhanced version with integrated BASIC detokenization:
+
+```bash
+python3 coco_commander_v1.py
+```
+
+**V1 Features:**
+- ✨ **BASIC Detokenization** - Automatically convert tokenized BASIC programs to readable text
+- 🎨 **Color-Coded Selection** - Green highlight for active panel, white for inactive
+- 📝 **Smart Filename Entry** - Cursor starts at end for quick editing
+- 🔄 **Enhanced Dialogs** - Improved Yes/No dialogs with button navigation
+- All standard CoCo Commander features
+
+**Requirements:** `coco_detokenizer.py` must be in the same directory
+
+#### **CoCo Commander** (Standard)
+
+Full-featured text-based UI with dual-pane file management:
 
 ```bash
 python3 coco_commander.py
 ```
 
-**Features:**
+**Standard Features:**
 - Dual-pane interface (PC files ↔ DSK image)
 - F2: Info | F3: View | F4: Edit | F5: Copy | F6: Rename | F7: Format | F8: Delete
 - Navigate with arrow keys and TAB
@@ -38,10 +61,39 @@ Traditional command-line interface for scripting and automation.
 - **Free space calculation** - See available storage on disk images
 - **JVC header support** - Handles both raw DSK and JVC formats
 
+## What's New in Version 1.0
+
+### 🎉 CoCo Commander V1 with BASIC Detokenization
+
+The flagship feature of v1.0 is the new **CoCo Commander V1** with integrated BASIC detokenization:
+
+- **Automatic BASIC Detection**: Recognizes tokenized BASIC files when copying from DSK
+- **Interactive Choice**: Asks if you want to detokenize before saving to PC
+- **Smart Naming**: Auto-suggests `.txt` extension for detokenized files
+- **Readable Output**: Converts tokenized BASIC to human-readable source code
+- **Full Token Support**: Handles Color BASIC, Extended Color BASIC, and CoCo 3 Super Extended BASIC
+- **Fallback Protection**: If detokenization fails, raw file is still saved
+
+### 🎨 Enhanced User Interface
+
+- Color-coded selection bars (green for active panel)
+- Improved dialog system with visual button navigation
+- Better cursor positioning in input fields
+- Tab behavior resets DSK panel to top
+
+### 📦 What's Included
+
+- `coco_commander_v1.py` - Enhanced version with detokenization
+- `coco_commander.py` - Standard version
+- `coco_detokenizer.py` - Standalone BASIC detokenizer
+- `coco_dsk.py` - Command-line DSK tool and Python API
+- `COCO_COMMANDER_GUIDE.md` - Complete user guide
+
 ## Requirements
 
 - Python 3.6 or higher
 - No external dependencies required (uses standard library only)
+- For V1: `coco_detokenizer.py` in same directory as `coco_commander_v1.py`
 
 ## Usage
 
@@ -351,6 +403,19 @@ Maximum 72 files per disk. You'll need to use a new disk image.
 
 Based on dsktools by mseminatore. This tool is provided for educational and preservation purposes.
 
+## Version History
+
+### Version 1.0 (2025)
+- ✨ Added CoCo Commander V1 with BASIC detokenization support
+- 🎨 Enhanced UI with color-coded panels and improved dialogs
+- 📝 Integrated standalone BASIC detokenizer
+- 📚 Comprehensive user guide with V1 documentation
+- 🔧 Improved filename input with cursor positioning
+- 🎯 Tab behavior enhancements for better navigation
+
+### Previous Versions
+- Initial release: Command-line DSK tool and original CoCo Commander
+
 ## Authoring
 
 Made with ❤️ by Reinaldo Torres — a proud CoCo enthusiast 📧 reyco2000@gmail.com
@@ -358,6 +423,8 @@ Made with ❤️ by Reinaldo Torres — a proud CoCo enthusiast 📧 reyco2000@g
 🟢 Proud member and co-creator of the CoCoByte Club https://cocobyte.co/
 
 🔗 See more on @ChipShift https://github.com/reyco2000/
+
+**Coded with Claude Code** - Developed using Anthropic's Claude AI assistant
 
 ## Contributing
 

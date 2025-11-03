@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-CoCo Commander - Norton Commander-style TUI for TRS-80 Color Computer DSK Files
+CoCo Commander V1 - Norton Commander-style TUI for TRS-80 Color Computer DSK Files
 
 Coded by ChipShift Reyco2000@gmail.com Using Claude Code
 (C) 2025
 
 A dual-pane file manager for working with CoCo DSK/JVC disk images.
+Includes BASIC detokenization support.
 """
 
 import curses
@@ -14,6 +15,14 @@ import sys
 from pathlib import Path
 from typing import Optional, List, Tuple
 from coco_dsk import DSKImage, DirectoryEntry
+
+# Import detokenizer from same directory
+sys.path.insert(0, str(Path(__file__).parent))
+try:
+    from coco_detokenizer import detokenize_file
+    DETOKENIZER_AVAILABLE = True
+except ImportError:
+    DETOKENIZER_AVAILABLE = False
 
 
 class FilePanel:
@@ -354,7 +363,7 @@ class CoCoCommander:
         status_text = f" TAB: Switch Panels | Active: {panel_name} "
 
         # Copyright text (right-aligned)
-        copyright_text = "CoCo-Commander (C)2025 by Chipshift - CoCoByte Club"
+        copyright_text = "CoCo-Commander V1 (C)2025 by Chipshift - CoCoByte Club"
 
         # Calculate position to right-align the copyright
         copyright_x = width - len(copyright_text) - 2
@@ -426,6 +435,54 @@ class CoCoCommander:
             if key in (ord('y'), ord('Y')):
                 return True
             elif key in (ord('n'), ord('N'), 27):  # 27 = ESC
+                return False
+
+    def yes_no_dialog(self, title: str, message: str, default: bool = True) -> Optional[bool]:
+        """Show yes/no dialog with default option"""
+        lines = message.split('\n')
+        max_width = max(len(line) for line in lines) + 4
+        height = len(lines) + 6
+
+        screen_h, screen_w = self.stdscr.getmaxyx()
+        y = (screen_h - height) // 2
+        x = (screen_w - max_width) // 2
+
+        dialog_win = curses.newwin(height, max_width, y, x)
+        dialog_win.keypad(True)
+
+        selected = 0 if default else 1  # 0=Yes, 1=No
+
+        while True:
+            dialog_win.erase()
+            dialog_win.box()
+            dialog_win.addstr(0, 2, f" {title} ", curses.color_pair(3) | curses.A_BOLD)
+
+            for i, line in enumerate(lines):
+                dialog_win.addstr(i + 2, 2, line)
+
+            # Draw Yes/No buttons
+            button_y = height - 3
+            yes_attr = curses.A_REVERSE if selected == 0 else curses.A_NORMAL
+            no_attr = curses.A_REVERSE if selected == 1 else curses.A_NORMAL
+
+            dialog_win.addstr(button_y, 2, " [ Yes ] ", yes_attr | curses.A_BOLD)
+            dialog_win.addstr(button_y, 12, " [ No ] ", no_attr | curses.A_BOLD)
+
+            dialog_win.addstr(height - 2, 2, "LEFT/RIGHT: Select | ENTER: Confirm | ESC: Cancel", curses.A_DIM)
+            dialog_win.refresh()
+
+            key = dialog_win.getch()
+            if key == curses.KEY_LEFT:
+                selected = 0
+            elif key == curses.KEY_RIGHT:
+                selected = 1
+            elif key in (curses.KEY_ENTER, 10, 13):
+                return selected == 0  # Return True for Yes, False for No
+            elif key == 27:  # ESC
+                return None
+            elif key in (ord('y'), ord('Y')):
+                return True
+            elif key in (ord('n'), ord('N')):
                 return False
 
     def handle_f3_view(self):
@@ -568,19 +625,48 @@ class CoCoCommander:
 
             full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
 
+            # Check if it's a BASIC file (type 0x00)
+            is_basic = entry.file_type == 0x00
+            detokenize = False
+
+            # Ask if user wants to detokenize BASIC files
+            if is_basic and DETOKENIZER_AVAILABLE:
+                result = self.yes_no_dialog("BASIC File Detected",
+                                           f"File: {full_name}\nFile Type: BASIC\n\nDetokenize to readable text?",
+                                           default=True)
+                if result is None:  # User cancelled
+                    return
+                detokenize = result
+
             # Ask for PC filename
+            default_name = full_name.lower()
+            if detokenize and not default_name.endswith('.txt'):
+                # Change extension to .txt for detokenized files
+                default_name = default_name.rsplit('.', 1)[0] + '.txt' if '.' in default_name else default_name + '.txt'
+
             pc_name = self.input_dialog("Download from DSK",
                                        f"Download: {full_name}\nPC filename:",
-                                       full_name.lower())
+                                       default_name)
             if not pc_name:
                 return
 
             output_path = self.pc_panel.current_path / pc_name
 
             try:
+                # Copy file from DSK
                 if self.dsk_panel.dsk.copy_to_pc(full_name, str(output_path)):
+                    # If detokenize was requested, process the file
+                    if detokenize:
+                        try:
+                            detokenized = detokenize_file(str(output_path))
+                            Path(output_path).write_text(detokenized, encoding='utf-8')
+                            self.show_message(f"File downloaded & detokenized:\n{pc_name}")
+                        except Exception as e:
+                            self.show_message(f"Downloaded but detokenization failed:\n{e}", error=True)
+                    else:
+                        self.show_message(f"File downloaded:\n{pc_name}")
+
                     self.pc_panel.refresh()
-                    self.show_message(f"File downloaded:\n{pc_name}")
                 else:
                     self.show_message("Download failed!", error=True)
             except Exception as e:
