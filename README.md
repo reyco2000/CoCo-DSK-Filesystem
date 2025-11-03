@@ -2,9 +2,9 @@
 
 **Version 1.0** - Now with BASIC Detokenization!
 
-A Python tool for managing TRS-80 Color Computer DSK/JVC disk images. This tool allows you to mount, inspect, and transfer files between Color Computer disk images and your PC.
+A Python tool for managing TRS-80 Color Computer DSK/JVC disk images. This tool allows you to mount, inspect, and transfer files between Color Computer disk images and your PC, also incluides a script that allows to browser and navigate on DSK files
 
-Based on the [dsktools library](https://github.com/mseminatore/dsktools/) by mseminatore.
+
 
 ## Quick Start
 
