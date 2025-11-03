@@ -38,50 +38,32 @@ Based on the [dsktools library](https://github.com/mseminatore/dsktools/) by mse
    # Run CoCo Commander V1 (with detokenization)
    python3 coco_commander_v1.py
 
-   # Or run standard version
-   python3 coco_commander.py
-
    # Or use command-line tool
    python3 coco_dsk.py mydisk.dsk -l
    ```
 
 ## Two Ways to Use
 
-### 1. CoCo Commander - Norton Commander-style TUI
+### 1. CoCo Commander V1 - Norton Commander-style TUI
 
-Choose between two versions:
-
-#### **CoCo Commander V1** (Recommended - NEW in v1.0!)
-
-Enhanced version with integrated BASIC detokenization:
+**NEW in v1.0!** Enhanced text-based UI with integrated BASIC detokenization:
 
 ```bash
 python3 coco_commander_v1.py
 ```
 
-**V1 Features:**
+**Features:**
 - ✨ **BASIC Detokenization** - Automatically convert tokenized BASIC programs to readable text
 - 🎨 **Color-Coded Selection** - Green highlight for active panel, white for inactive
 - 📝 **Smart Filename Entry** - Cursor starts at end for quick editing
 - 🔄 **Enhanced Dialogs** - Improved Yes/No dialogs with button navigation
-- All standard CoCo Commander features
+- 🎯 **Dual-Pane Interface** - PC files ↔ DSK image side-by-side
+- 📁 **Function Keys** - F2: Info | F3: View | F4: Edit | F5: Copy | F6: Rename | F7: Format | F8: Delete
+- ⌨️ **Intuitive Navigation** - Arrow keys and TAB for panel switching
+- 👁️ **Built-in Viewers** - Hex/text viewer and text editor
+- 🎨 **Norton Commander Style** - Familiar dual-pane file management
 
 **Requirements:** `coco_detokenizer.py` must be in the same directory
-
-#### **CoCo Commander** (Standard)
-
-Full-featured text-based UI with dual-pane file management:
-
-```bash
-python3 coco_commander.py
-```
-
-**Standard Features:**
-- Dual-pane interface (PC files ↔ DSK image)
-- F2: Info | F3: View | F4: Edit | F5: Copy | F6: Rename | F7: Format | F8: Delete
-- Navigate with arrow keys and TAB
-- Built-in hex/text viewer and editor
-- Visual file management like Norton Commander
 
 See [COCO_COMMANDER_GUIDE.md](COCO_COMMANDER_GUIDE.md) for complete documentation.
 
@@ -122,8 +104,7 @@ The flagship feature of v1.0 is the new **CoCo Commander V1** with integrated BA
 
 ### 📦 What's Included
 
-- `coco_commander_v1.py` - Enhanced version with detokenization
-- `coco_commander.py` - Standard version
+- `coco_commander_v1.py` - CoCo Commander with BASIC detokenization
 - `coco_detokenizer.py` - Standalone BASIC detokenizer
 - `coco_dsk.py` - Command-line DSK tool and Python API
 - `COCO_COMMANDER_GUIDE.md` - Complete user guide
@@ -466,15 +447,16 @@ Based on dsktools by mseminatore. This tool is provided for educational and pres
 ## Version History
 
 ### Version 1.0 (2025)
-- ✨ Added CoCo Commander V1 with BASIC detokenization support
+- ✨ Released CoCo Commander V1 with integrated BASIC detokenization support
 - 🎨 Enhanced UI with color-coded panels and improved dialogs
-- 📝 Integrated standalone BASIC detokenizer
-- 📚 Comprehensive user guide with V1 documentation
+- 📝 Standalone BASIC detokenizer module included
+- 📚 Comprehensive user guide and technical documentation
 - 🔧 Improved filename input with cursor positioning
 - 🎯 Tab behavior enhancements for better navigation
+- 🧹 Simplified to single CoCo Commander version (V1 only)
 
 ### Previous Versions
-- Initial release: Command-line DSK tool and original CoCo Commander
+- Initial release: Command-line DSK tool and prototype CoCo Commander
 
 ## Authoring
 
