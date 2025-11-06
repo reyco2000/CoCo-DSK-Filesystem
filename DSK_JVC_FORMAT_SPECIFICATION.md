@@ -9,16 +9,19 @@
 1. [Introduction](#introduction)
 2. [Historical Context](#historical-context)
 3. [Physical Disk Structure](#physical-disk-structure)
-4. [JVC Header Format](#jvc-header-format)
-5. [Sector Organization](#sector-organization)
-6. [The Granule System](#the-granule-system)
-7. [File Allocation Table (FAT)](#file-allocation-table-fat)
-8. [Directory Structure](#directory-structure)
-9. [File Storage and Retrieval](#file-storage-and-retrieval)
-10. [File Types](#file-types)
-11. [Working Examples](#working-examples)
-12. [Advanced Topics](#advanced-topics)
-13. [Common Issues and Solutions](#common-issues-and-solutions)
+4. [Physical Track Format](#physical-track-format)
+5. [Physical Sector Format](#physical-sector-format)
+6. [Sector Interleaving and Skip Factor](#sector-interleaving-and-skip-factor)
+7. [JVC Header Format](#jvc-header-format)
+8. [Sector Organization](#sector-organization)
+9. [The Granule System](#the-granule-system)
+10. [File Allocation Table (FAT)](#file-allocation-table-fat)
+11. [Directory Structure](#directory-structure)
+12. [File Storage and Retrieval](#file-storage-and-retrieval)
+13. [File Types](#file-types)
+14. [Working Examples](#working-examples)
+15. [Advanced Topics](#advanced-topics)
+16. [Common Issues and Solutions](#common-issues-and-solutions)
 
 ---
 
@@ -127,6 +130,292 @@ Offset = 0 + ((17 × 18) + (2 - 1)) × 256
        = 0 + 307 × 256
        = 78,592 bytes
 ```
+
+---
+
+## Physical Track Format
+
+### Raw Track Structure
+
+When the Color Computer formats a disk, it organizes each track with specific control bytes and data sectors. Each physical track contains approximately **6,250 bytes** total:
+
+```
+Byte Range    Contents
+----------    --------
+0-31          System control bytes (0x4E)
+32-6115       Sector data (18 sectors × 338 bytes)
+6116-6249*    System control bytes (0x4E)
+
+*Note: The number of trailing control bytes may vary slightly
+due to disk rotation speed variations.
+```
+
+### Track Layout Breakdown
+
+| Component | Bytes | Description |
+|-----------|-------|-------------|
+| Pre-track gap | 32 | Gap bytes (0x4E) before first sector |
+| Sector data | 6,084 | 18 sectors × 338 bytes each |
+| Post-track gap | ~134 | Gap bytes (0x4E) after last sector |
+| **Total** | **~6,250** | Approximate total per track |
+
+### Gap Byte Purpose
+
+The gap bytes (0x4E hexadecimal) serve several purposes:
+
+- **Synchronization**: Allow the disk controller to synchronize with the data stream
+- **Timing tolerance**: Compensate for slight speed variations in disk rotation
+- **Error recovery**: Provide space between sectors for the controller to prepare
+- **Write splicing**: Allow sectors to be rewritten without affecting adjacent sectors
+
+### Important Notes
+
+- DSK/JVC image files **do not store** these gap bytes - they only contain the 256 data bytes per sector
+- The physical formatting is handled by the disk controller (WD1793/WD2793)
+- Gap bytes are automatically regenerated when writing to real floppy disks
+- Emulators typically don't need to simulate gap bytes
+
+---
+
+## Physical Sector Format
+
+### Complete Sector Structure
+
+Each physical sector on disk contains **338 bytes total**: 256 bytes of user data surrounded by control information for the disk controller.
+
+```
+Byte Range    Size    Contents
+----------    ----    --------
+0-55          56      Sector header and sync
+56-311        256     User data (what's in DSK file)
+312-337       26      CRC and post-sector gap
+----------    ----    --------
+Total:        338     Physical sector size
+```
+
+### Detailed Sector Header Format
+
+The sector header identifies the sector and prepares the controller for reading:
+
+| Byte Offset | Hex Value | Description |
+|-------------|-----------|-------------|
+| 0-7 | 0x00 | Pre-sync gap (8 bytes) |
+| 8-10 | 0xF5 | Sync bytes (3 bytes)* |
+| 11 | 0xFE | ID Address Mark |
+| 12 | Track # | Current track number (0-34) |
+| 13 | 0x00 | Side number (0=side 0, 1=side 1) |
+| 14 | Sector # | Sector number (1-18) |
+| 15 | 0x01 | Sector size code (1 = 256 bytes) |
+| 16-17 | CRC | Cyclic Redundancy Check for header |
+| 18-39 | 0x4E | Post-header gap (22 bytes) |
+| 40-51 | 0x00 | Pre-data sync (12 bytes) |
+| 52-54 | 0xF5 | Data sync bytes (3 bytes)* |
+| 55 | 0xFB | Data Address Mark |
+| **56-311** | **Data** | **256 bytes of user data** |
+| 312-313 | CRC | Cyclic Redundancy Check for data |
+| 314-337 | 0x4E | Post-data gap (24 bytes) |
+
+*Note: 0xF5 sync bytes are actually written as 0xA1 with a missing clock bit - a special pattern the disk controller can recognize.
+
+### Sector Size Codes
+
+The sector size code (byte 15) determines the data area size:
+
+| Code | Formula | Sector Size |
+|------|---------|-------------|
+| 0x00 | 128 << 0 | 128 bytes |
+| 0x01 | 128 << 1 | 256 bytes (standard CoCo) |
+| 0x02 | 128 << 2 | 512 bytes |
+| 0x03 | 128 << 3 | 1024 bytes |
+
+### CRC (Cyclic Redundancy Check)
+
+Two CRC values protect sector integrity:
+
+1. **Header CRC** (bytes 16-17): Protects track, side, sector, and size information
+2. **Data CRC** (bytes 312-313): Protects the 256 bytes of user data
+
+The WD1793/WD2793 controller automatically calculates and verifies CRCs. CRC errors indicate disk corruption or read errors.
+
+### Address Marks
+
+Special byte patterns that synchronize the controller:
+
+- **0xFE**: ID Address Mark - Signals start of sector header
+- **0xFB**: Data Address Mark - Signals start of data field
+- **0xF5**: Written as 0xA1 with missing clock - Sync pattern
+- **0xF8**: Deleted Data Mark - Marks deleted sectors (rarely used)
+
+### What's in a DSK File?
+
+DSK/JVC image files contain **only the 256 data bytes** from each sector (bytes 56-311). All header, sync, CRC, and gap bytes are omitted because:
+
+- They're automatically regenerated by disk controllers
+- They're not needed for emulation
+- Including them would increase file size by 32% (338 vs 256 bytes/sector)
+
+### Physical vs. Logical View
+
+**Physical sector (on disk)**: 338 bytes with headers, CRCs, gaps
+**Logical sector (in DSK)**: 256 bytes of pure data
+
+When you access Track 0, Sector 1 in a DSK file, you're reading only the 256 data bytes, not the full 338-byte physical sector.
+
+---
+
+## Sector Interleaving and Skip Factor
+
+### The Interleaving Problem
+
+Floppy disks spin continuously at 300 RPM (5 revolutions per second). The CoCo reads or writes one sector at a time, but between sector operations, it must process the data in memory. This takes time.
+
+**The challenge**: By the time the Computer finishes processing Sector 1, the disk has already spun past Sector 2!
+
+### Skip Factor Solution
+
+To solve this timing problem, the CoCo uses **sector interleaving** during formatting. Sectors are numbered on the disk in a non-sequential order, with a **skip factor** determining the spacing.
+
+**Skip Factor 4** (standard): After reading a sector, skip 4 physical sectors before the next logical sector.
+
+### Physical vs. Logical Sector Layout
+
+With skip factor 4, the logical sector sequence is interleaved across the physical track:
+
+```
+Physical    Logical     Physical    Logical
+Sector      Sector      Sector      Sector
+--------    -------     --------    -------
+   1           1           10          10
+   2          12           11           3
+   3           5           12          14
+   4          16           13           7
+   5           9           14          18
+   6           2           15          11
+   7          13           16           4
+   8           6           17          15
+   9          17           18           8
+```
+
+### How It Works
+
+**Example: Reading sectors 1, 2, 3 sequentially**
+
+1. **Read Logical Sector 1** (Physical Sector 1)
+   - CoCo processes data (~4 sector times)
+   - Disk spins past physical sectors 2, 3, 4, 5
+
+2. **Read Logical Sector 2** (Physical Sector 6)
+   - CoCo processes data (~4 sector times)
+   - Disk spins past physical sectors 7, 8, 9, 10
+
+3. **Read Logical Sector 3** (Physical Sector 11)
+   - Process continues...
+
+Without interleaving, the CoCo would have to wait a full rotation to catch each sector!
+
+### Visual Representation
+
+```
+Track viewed as circular disk (Physical Layout):
+
+         1(L1)
+    18(L8)  2(L12)
+  17(L15)     3(L5)
+16(L4)          4(L16)
+15(L11)         5(L9)
+  14(L18)     6(L2)
+    13(L7)  7(L13)
+        8(L6)
+         9(L17)
+    10(L10)
+
+L# = Logical sector number
+```
+
+### Calculating Physical Sector Number
+
+Given a logical sector number (1-18) and skip factor (4):
+
+```python
+def logical_to_physical(logical_sector, skip_factor=4, sectors_per_track=18):
+    """Convert logical sector to physical sector number."""
+    physical = 1 + ((logical_sector - 1) * (skip_factor + 1)) % sectors_per_track
+    return physical
+
+# Examples:
+# Logical 1 → Physical 1
+# Logical 2 → Physical 6
+# Logical 3 → Physical 11
+```
+
+### Reverse Calculation
+
+```python
+def physical_to_logical(physical_sector, skip_factor=4, sectors_per_track=18):
+    """Convert physical sector to logical sector number."""
+    # Build lookup table
+    physical_to_logical_map = {}
+    for logical in range(1, sectors_per_track + 1):
+        physical = 1 + ((logical - 1) * (skip_factor + 1)) % sectors_per_track
+        physical_to_logical_map[physical] = logical
+
+    return physical_to_logical_map[physical_sector]
+```
+
+### Performance Implications
+
+**Skip Factor 4** (standard for BASIC):
+- Optimal for interpreted BASIC LOAD/SAVE operations
+- Allows ~4 sector times for processing
+
+**Skip Factor 3**:
+- Faster for machine language operations
+- Requires quicker processing: `DSKINI 0,3`
+
+**Skip Factor 2**:
+- Very fast, but only suitable for fast ML routines
+- Risk of missing sectors if processing is slow
+
+**Skip Factor 5 or higher**:
+- Slower disk I/O
+- Used for debugging or very slow processing
+
+### Formatting with Different Skip Factors
+
+The DSKINI command formats with a specific skip factor:
+
+```basic
+DSKINI 0, 4    ' Format drive 0 with skip factor 4 (standard)
+DSKINI 0, 3    ' Format drive 0 with skip factor 3 (faster)
+DSKINI 0, 5    ' Format drive 0 with skip factor 5 (slower)
+```
+
+**Warning**: Changing skip factor affects disk compatibility! A disk formatted with skip factor 3 may have read errors if the system expects skip factor 4.
+
+### Skip Factor in DSK Files
+
+**Important**: DSK/JVC image files store sectors in **logical order** (1, 2, 3, ... 18), not physical order. The skip factor interleaving is:
+
+- **Not present** in the DSK file format
+- **Only relevant** on physical floppy disks
+- **Recreated** when writing DSK images to real floppies
+- **Transparent** to emulators (they access sectors instantly)
+
+### Interleaving Table Reference
+
+Complete mapping for skip factor 4:
+
+| Logical | Physical | Logical | Physical |
+|---------|----------|---------|----------|
+| 1 | 1 | 10 | 10 |
+| 2 | 6 | 11 | 15 |
+| 3 | 11 | 12 | 2 |
+| 4 | 16 | 13 | 7 |
+| 5 | 3 | 14 | 12 |
+| 6 | 8 | 15 | 17 |
+| 7 | 13 | 16 | 4 |
+| 8 | 18 | 17 | 9 |
+| 9 | 5 | 18 | 14 |
 
 ---
 
@@ -443,14 +732,26 @@ Offset  Size  Field Name           Description
 - **Length**: 8 bytes
 - **Format**: ASCII, uppercase
 - **Padding**: Space (0x20) on the right
-- **Invalid**: First byte 0x00 or 0xFF indicates unused entry
+- **Special values**: First byte indicates entry status
+
+**First Byte Status Codes**:
+
+| First Byte | Status | Description |
+|------------|--------|-------------|
+| 0x00 | Deleted | File has been deleted, entry available for reuse |
+| 0xFF | Never used | Entry has never been used (all following entries also unused) |
+| 0x20-0x7E | Active | Valid filename character, entry is in use |
+
+**Important**: When the first byte is 0xFF, it indicates that this entry **and all subsequent entries** in the directory have never been used. This allows the system to stop scanning the directory early.
 
 **Examples**:
 ```
-"HELLO   " (5 chars + 3 spaces)
-"GAME1   " (5 chars + 3 spaces)
-"PROGRAM " (7 chars + 1 space)
-"X       " (1 char + 7 spaces)
+"HELLO   " (5 chars + 3 spaces) - Active file
+"GAME1   " (5 chars + 3 spaces) - Active file
+"PROGRAM " (7 chars + 1 space)  - Active file
+"X       " (1 char + 7 spaces)  - Active file
+0x00 followed by garbage         - Deleted file, can be reused
+0xFF followed by garbage         - Never used, stop directory scan
 ```
 
 #### Extension (0x08-0x0A)
@@ -526,19 +827,56 @@ Offset  Hex Value                            ASCII/Description
 0x18    FF FF FF FF FF FF FF FF              Reserved
 ```
 
-### Empty Directory Entry
+### Empty and Deleted Directory Entries
 
-Unused entries are marked:
+Directory entries can be in three states:
 
+**1. Active Entry (In Use)**
 ```
-0x00    00 or FF ...  (first byte is 0x00 or 0xFF)
+First byte: 0x20-0x7E (valid filename character)
+Contains complete file information
 ```
 
-or
-
+**2. Deleted Entry (Available for Reuse)**
 ```
-0x00-   All zeros or all 0xFF
-0x1F
+First byte: 0x00
+Remaining bytes: May contain old file data (garbage)
+Status: Available for new files
+```
+
+When a file is deleted:
+- Only the first byte is set to 0x00
+- Other bytes may retain old data
+- Entry can be reclaimed for new files
+
+**3. Never Used Entry**
+```
+First byte: 0xFF
+Remaining bytes: Typically all 0xFF or 0x00
+Status: Never been allocated
+```
+
+When first byte is 0xFF:
+- This entry has **never been used**
+- **All subsequent entries** are also unused
+- Allows early termination of directory scan
+- No need to check entries after the first 0xFF
+
+**Directory Scanning Logic**:
+
+```python
+for entry in directory_entries:
+    first_byte = entry[0]
+
+    if first_byte == 0xFF:
+        # Never used - stop scanning
+        break
+    elif first_byte == 0x00:
+        # Deleted - skip but continue scanning
+        continue
+    else:
+        # Active file - process entry
+        process_file(entry)
 ```
 
 ---
