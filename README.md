@@ -1,8 +1,8 @@
 # TRS-80 Color Computer DSK/JVC File System Tool
 
-**Version 1.0** - Now with BASIC Detokenization!
+**Version 1.1** - Real CoCo DECB Behavior + Comprehensive Documentation!
 
-A Python tool for managing TRS-80 Color Computer DSK/JVC disk images. This tool allows you to mount, inspect, and transfer files between Color Computer disk images and your PC, also incluides a script that allows to browser and navigate on DSK files
+A Python tool for managing TRS-80 Color Computer DSK/JVC disk images with authentic hardware behavior. This tool allows you to mount, inspect, and transfer files between Color Computer disk images and your PC, with a Norton Commander-style browser for easy navigation.
 
 
 
@@ -82,11 +82,39 @@ Traditional command-line interface for scripting and automation.
 - **Free space calculation** - See available storage on disk images
 - **JVC header support** - Handles both raw DSK and JVC formats
 
-## What's New in Version 1.0
+## What's New in Version 1.1
+
+### 🔧 Real CoCo DECB Hardware Behavior
+
+Version 1.1 implements **authentic TRS-80 Color Computer DECB behavior** based on real hardware observations:
+
+- **Granule Allocation**: Files now start allocating from granule 32 (track 16), matching real CoCo DECB behavior
+- **Directory Entry Formatting**: Active entries use `0x00` padding in reserved bytes (not `0xFF`)
+- **Deletion Markers**: Deleted entries marked with first byte `0x00` only, rest may retain old data
+- **Fresh Format Behavior**: Never-used entries filled with `0xFF` on fresh formatted disks
+- **FAT Padding**: Uses `0x00` for FAT sector padding during file operations (bytes 68-255)
+- **Default Format**: No JVC header by default (real CoCo standard); use `--add-jvc` for emulator compatibility
+
+### 📚 Comprehensive Technical Documentation
+
+Two new professional documentation files:
+
+- **DSK_JVC_FORMAT_SPECIFICATION.md** - Complete 1,250+ line technical specification covering:
+  - Physical disk structure and track/sector format
+  - Sector interleaving and skip factors
+  - Detailed FAT and directory structure
+  - File storage algorithms with working examples
+  - Common issues and troubleshooting
+
+- **DSK_JVC_PROGRAMMER_GUIDE.md** - Concise programmer's reference with:
+  - Quick reference diagrams
+  - Implementation code examples
+  - Real CoCo DECB behavior notes
+  - Troubleshooting checklist
 
 ### 🎉 CoCo Commander V1 with BASIC Detokenization
 
-The flagship feature of v1.0 is the new **CoCo Commander V1** with integrated BASIC detokenization:
+Flagship feature with integrated BASIC detokenization:
 
 - **Automatic BASIC Detection**: Recognizes tokenized BASIC files when copying from DSK
 - **Interactive Choice**: Asks if you want to detokenize before saving to PC
@@ -106,8 +134,10 @@ The flagship feature of v1.0 is the new **CoCo Commander V1** with integrated BA
 
 - `coco_commander_v1.py` - CoCo Commander with BASIC detokenization
 - `coco_detokenizer.py` - Standalone BASIC detokenizer
-- `coco_dsk.py` - Command-line DSK tool and Python API
+- `coco_dsk.py` - Command-line DSK tool and Python API with real CoCo behavior
 - `COCO_COMMANDER_GUIDE.md` - Complete user guide
+- `DSK_JVC_FORMAT_SPECIFICATION.md` - Complete technical specification (1,250+ lines)
+- `DSK_JVC_PROGRAMMER_GUIDE.md` - Concise programmer's reference
 
 ## Requirements
 
@@ -188,17 +218,17 @@ python coco_dsk.py mydisk.dsk -d OLDFILE.BIN -s cleaned.dsk
 ### Format a New Blank DSK Image
 
 ```bash
-# Create a standard 160K disk (35 tracks, single-sided)
+# Create a standard 160K disk (35 tracks, single-sided, NO JVC header - real CoCo format)
 python coco_dsk.py newdisk.dsk --format
+
+# Create with JVC header for emulators
+python coco_dsk.py newdisk.dsk --format --add-jvc
 
 # Create a 360K double-sided disk (40 tracks, 2 sides)
 python coco_dsk.py bigdisk.dsk --format --tracks 40 --sides 2
 
-# Create an 80-track 720K disk
-python coco_dsk.py huge.dsk --format --tracks 80 --sides 2
-
-# Create a pure DSK without JVC header
-python coco_dsk.py pure.dsk --format --no-jvc
+# Create an 80-track 720K disk with JVC header
+python coco_dsk.py huge.dsk --format --tracks 80 --sides 2 --add-jvc
 ```
 
 ### Save Modified DSK to New File
@@ -238,10 +268,11 @@ python coco_dsk.py mydisk.dsk -p newfile.bin -s modified.dsk
 ### Format Options
 | Argument | Description |
 |----------|-------------|
-| `--format` | Format a new blank DSK image |
+| `--format` | Format a new blank DSK image (no JVC header by default - real CoCo) |
 | `--tracks TRACKS` | Number of tracks for `--format` (default: 35) |
 | `--sides {1,2}` | Number of sides for `--format` (default: 1) |
-| `--no-jvc` | Do not add JVC header when formatting |
+| `--add-jvc` | Add JVC header when formatting (for emulators) |
+| `--no-jvc` | Deprecated: no header is now the default |
 
 ### Save Options
 | Argument | Description |
@@ -275,6 +306,8 @@ When uploading files, specify the mode:
 - **Default format:** 35 tracks, 18 sectors/track (160K)
 - **Granule size:** 9 sectors (2,304 bytes)
 - **Granules per disk:** 68
+- **Allocation start:** Granule 32 (track 16) - matches real CoCo DECB
+- **Default header:** None (real CoCo standard); JVC headers optional for emulators
 
 ### Disk Structure
 - **Directory track:** Track 17
@@ -287,12 +320,26 @@ When uploading files, specify the mode:
 
 Each 32-byte directory entry contains:
 - Bytes 0-7: Filename (8 characters, space-padded)
+  - First byte `0x00` = deleted entry
+  - First byte `0xFF` = never used (all subsequent entries also unused)
+  - First byte `0x20-0x7E` = active file
 - Bytes 8-10: Extension (3 characters, space-padded)
 - Byte 11: File type (0=BASIC, 1=DATA, 2=ML, 3=TEXT)
 - Byte 12: ASCII flag (0xFF=ASCII, 0x00=Binary)
 - Byte 13: First granule number (0-67)
 - Bytes 14-15: Last sector byte count (big-endian)
-- Bytes 16-31: Reserved (0xFF)
+- Bytes 16-31: Reserved (`0x00` for active entries, `0xFF` for fresh format)
+
+### Real CoCo DECB Behavior
+
+This tool implements authentic CoCo behavior:
+- **Granule allocation**: Starts at granule 32, searches 32-67 then wraps to 0-31
+- **Directory padding**: Active entries use `0x00` in reserved bytes
+- **Deletion**: Only first byte set to `0x00`, rest retains old data
+- **Fresh format**: All directory entries filled with `0xFF`
+- **FAT padding**: Bytes 68-255 use `0x00` during file operations
+
+For complete technical details, see [DSK_JVC_FORMAT_SPECIFICATION.md](DSK_JVC_FORMAT_SPECIFICATION.md)
 
 ## Examples
 
@@ -359,6 +406,12 @@ Track 17 is reserved for the directory and FAT. When calculating granule-to-trac
 - Granules 0-33 map to tracks 0-16
 - Granules 34-67 map to tracks 18-34
 - Track 17 is skipped in the mapping
+
+### Granule Allocation Strategy
+**Real CoCo DECB behavior**: Files allocate starting from granule 32 (track 16, just before directory track):
+- Search order: 32→67 (toward end of disk)
+- If needed, wraps to: 0→31 (toward beginning)
+- This places new files near the directory track for faster access
 
 ### JVC Header Support
 The tool automatically detects and parses JVC headers if present. JVC headers are optional and contain:
@@ -433,18 +486,51 @@ The disk is full. Check free space with `-l` option. You may need to use a large
 ### "Directory is full" Error
 Maximum 72 files per disk. You'll need to use a new disk image.
 
-## References
+## Documentation
 
-- [dsktools GitHub Repository](https://github.com/mseminatore/dsktools/)
-- [TRS-80 Color Computer Archive](https://colorcomputerarchive.com/)
-- [Disk BASIC File Structure](https://www.lomont.org/software/misc/coco/Disk%20Basic%20Unravelled.pdf)
-- [JVC Disk Image Format](http://www.tim-mann.org/trs80/dsk.html)
+### Included Documentation Files
+
+- **[DSK_JVC_FORMAT_SPECIFICATION.md](DSK_JVC_FORMAT_SPECIFICATION.md)** - Complete 1,250+ line technical specification
+  - Physical disk structure with track/sector format
+  - Sector interleaving and skip factors
+  - Detailed FAT and directory structure
+  - File storage algorithms with examples
+  - Common issues and troubleshooting
+  - Comprehensive reference for developers
+
+- **[DSK_JVC_PROGRAMMER_GUIDE.md](DSK_JVC_PROGRAMMER_GUIDE.md)** - Concise programmer's reference
+  - Quick reference cheatsheets
+  - Code implementation examples
+  - Real CoCo DECB behavior notes
+  - Troubleshooting checklist
+  - Ideal for quick lookups
+
+- **[COCO_COMMANDER_GUIDE.md](COCO_COMMANDER_GUIDE.md)** - CoCo Commander V1 user guide
+  - Complete UI reference
+  - Keyboard shortcuts
+  - BASIC detokenization guide
+  - Usage examples
+
+## External References
+
+- [dsktools GitHub Repository](https://github.com/mseminatore/dsktools/) - Original C implementation
+- [TRS-80 Color Computer Archive](https://colorcomputerarchive.com/) - Historical preservation
+- [Disk BASIC File Structure](https://www.lomont.org/software/misc/coco/Disk%20Basic%20Unravelled.pdf) - Official documentation
+- [JVC Disk Image Format](http://www.tim-mann.org/trs80/dsk.html) - Format specification
 
 ## License
 
 Based on dsktools by mseminatore. This tool is provided for educational and preservation purposes.
 
 ## Version History
+
+### Version 1.1 (January 2025)
+- 🔧 **Real CoCo DECB behavior** - Granule allocation from granule 32, authentic padding
+- 📚 **Comprehensive documentation** - 1,250+ line technical specification
+- 📖 **Programmer's guide** - Concise reference with code examples
+- 🎯 **Default format change** - No JVC header by default (real CoCo standard)
+- ✅ **FAT/Directory behavior** - Matches real hardware (0x00 padding, deletion markers)
+- 📝 **Enhanced docs** - Physical track/sector format, interleaving details
 
 ### Version 1.0 (2025)
 - ✨ Released CoCo Commander V1 with integrated BASIC detokenization support
