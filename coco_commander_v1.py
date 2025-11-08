@@ -697,14 +697,23 @@ class CoCoCommander:
             return
         sides = sides_choice + 1
 
+        # Ask for JVC header
+        jvc_choice = self.choice_dialog("JVC Header",
+                                       ["No header (Real CoCo format)", "Add JVC header (For emulators)"],
+                                       0)
+        if jvc_choice is None:
+            return
+        add_jvc = jvc_choice == 1
+
         # Confirm
         total_kb = (tracks * sides * 18 * 256) // 1024
-        if not self.confirm_dialog(f"Format new DSK:\n{dsk_name}\n{tracks}T/{sides}S ({total_kb}KB)\n\nProceed?"):
+        jvc_text = " + JVC header" if add_jvc else " (No JVC)"
+        if not self.confirm_dialog(f"Format new DSK:\n{dsk_name}\n{tracks}T/{sides}S ({total_kb}KB){jvc_text}\n\nProceed?"):
             return
 
         try:
             dsk_path = self.pc_panel.current_path / dsk_name
-            DSKImage.format_disk(str(dsk_path), tracks=tracks, sides=sides)
+            DSKImage.format_disk(str(dsk_path), tracks=tracks, sides=sides, add_jvc_header=add_jvc)
             self.pc_panel.refresh()
             self.show_message(f"DSK formatted successfully:\n{dsk_name} ({total_kb}KB)")
         except Exception as e:

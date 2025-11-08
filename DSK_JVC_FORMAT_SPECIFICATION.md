@@ -457,15 +457,16 @@ The sector size is calculated as: **Sector_Size = 128 << n**
 
 ### Header Examples
 
-**Example 1: No Header (Pure DSK)**
+**Example 1: No Header (Pure DSK - Real CoCo Standard)**
 ```
 File size: 161,280 bytes
 161,280 % 256 = 0
 Header size: 0 bytes
 Format: Pure DSK, assumes defaults (18/1/256/1/0)
+Note: This is the default format for real CoCo hardware
 ```
 
-**Example 2: 5-byte JVC Header**
+**Example 2: 5-byte JVC Header (For Emulators)**
 ```
 File size: 161,285 bytes
 161,285 % 256 = 5
@@ -477,6 +478,7 @@ Header bytes:
 0x02: 01           - 256-byte sectors
 0x03: 01           - First sector is #1
 0x04: 00           - No special attributes
+Note: JVC headers are primarily for emulators; real CoCo uses no header
 ```
 
 **Example 3: Extended Geometry**
@@ -564,13 +566,25 @@ Track  Granules
 1      2, 3
 2      4, 5
 ...
-16     32, 33
+16     32, 33    ← Real CoCo DECB starts allocation here
 17     (Reserved for directory)
 18     34, 35
 19     36, 37
 ...
 34     66, 67
 ```
+
+### Granule Allocation Strategy
+
+**Real CoCo DECB behavior** (as implemented in coco_dsk.py):
+
+Files are allocated starting from **granule 32** (track 16, just before the directory track).
+
+**Allocation search order**:
+1. Search granules 32-67 first (from track 16 forward)
+2. If needed, wrap around to granules 0-31
+
+This behavior matches real CoCo hardware and places new files near the directory track for faster access.
 
 ### Granule to Track/Sector Mapping
 
@@ -823,8 +837,8 @@ Offset  Hex Value                            ASCII/Description
 0x0C    00                                   Binary mode
 0x0D    05                                   First granule: 5
 0x0E    00 93                                Last sector: 147 bytes
-0x10    FF FF FF FF FF FF FF FF              Reserved
-0x18    FF FF FF FF FF FF FF FF              Reserved
+0x10    00 00 00 00 00 00 00 00              Reserved (Real CoCo uses 0x00)
+0x18    00 00 00 00 00 00 00 00              Reserved (Real CoCo uses 0x00)
 ```
 
 ### Empty and Deleted Directory Entries
@@ -835,6 +849,7 @@ Directory entries can be in three states:
 ```
 First byte: 0x20-0x7E (valid filename character)
 Contains complete file information
+Reserved bytes: 0x00 (Real CoCo DECB behavior)
 ```
 
 **2. Deleted Entry (Available for Reuse)**
@@ -845,14 +860,14 @@ Status: Available for new files
 ```
 
 When a file is deleted:
-- Only the first byte is set to 0x00
+- Only the first byte is set to 0x00 (Real CoCo DECB behavior)
 - Other bytes may retain old data
 - Entry can be reclaimed for new files
 
-**3. Never Used Entry**
+**3. Never Used Entry (Fresh Format)**
 ```
 First byte: 0xFF
-Remaining bytes: Typically all 0xFF or 0x00
+Remaining bytes: Typically all 0xFF
 Status: Never been allocated
 ```
 
@@ -861,6 +876,12 @@ When first byte is 0xFF:
 - **All subsequent entries** are also unused
 - Allows early termination of directory scan
 - No need to check entries after the first 0xFF
+
+**Real CoCo DECB Implementation Notes**:
+- Fresh formatted disks: All directory entries filled with 0xFF
+- Active entries: Reserved bytes (0x10-0x1F) use 0x00 padding
+- Deleted entries: Only first byte set to 0x00, rest may retain old data
+- This matches the behavior in coco_dsk.py
 
 **Directory Scanning Logic**:
 
@@ -895,14 +916,17 @@ for entry in directory_entries:
 
 2. **Find free granules** (scan FAT for 0xFF entries)
    ```
-   Found: Granules 10, 11, 15 are free
+   Real CoCo DECB starts allocation from granule 32 (track 16)
+   Search order: 32-67, then wrap to 0-31 if needed
+   Found: Granules 32, 33, 35 are free
    ```
 
 3. **Allocate granules** (update FAT)
    ```
-   FAT[10] = 11    # Point to next granule
-   FAT[11] = 15    # Point to next granule
-   FAT[15] = 0xC6  # Last granule, 6 sectors used
+   FAT[32] = 33    # Point to next granule
+   FAT[33] = 35    # Point to next granule
+   FAT[35] = 0xC6  # Last granule, 6 sectors used
+   Note: Real CoCo uses 0x00 for FAT padding when writing
    ```
 
 4. **Calculate last sector size**
@@ -928,17 +952,18 @@ for entry in directory_entries:
    ```
 
 5. **Write file data**
-   - Granule 10 → Track 5, Sectors 1-9
-   - Granule 11 → Track 5, Sectors 10-18
-   - Granule 15 → Track 7, Sectors 10-11 (only 2 sectors)
+   - Granule 32 → Track 16, Sectors 1-9
+   - Granule 33 → Track 16, Sectors 10-18
+   - Granule 35 → Track 17+1, Sectors 10-11 (only 2 sectors, skip track 17)
 
 6. **Create directory entry**
    ```
    Filename: "DATA.BIN"
    Type: 0x02 (ML)
    ASCII: 0x00 (Binary)
-   First granule: 10
+   First granule: 32
    Last sector bytes: 136
+   Reserved bytes: 0x00 (Real CoCo behavior)
    ```
 
 7. **Find free directory slot** (scan sectors 3-11)
@@ -1121,7 +1146,7 @@ Let's create a disk with one file: "HELLO.TXT" containing "HELLO WORLD".
    0x0C: 0xFF       # ASCII mode
    0x0D: 0x00       # First granule = 0
    0x0E: 0x00 0x0C  # Last sector = 12 bytes
-   0x10: 0xFF...    # Reserved
+   0x10: 0x00...    # Reserved (Real CoCo uses 0x00, not 0xFF)
    ```
 
 **Hex dump of Track 17, Sector 2 (FAT)**:
@@ -1135,9 +1160,10 @@ Let's create a disk with one file: "HELLO.TXT" containing "HELLO WORLD".
 **Hex dump of Track 17, Sector 3 (Directory)**:
 ```
 0000: 48 45 4C 4C 4F 20 20 20  54 58 54 03 FF 00 00 0C  |HELLO   TXT.....|
-0010: FF FF FF FF FF FF FF FF  FF FF FF FF FF FF FF FF  |................|
+0010: 00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
 0020: FF FF FF FF FF FF FF FF  FF FF FF FF FF FF FF FF  |................|
 ...
+(Note: Real CoCo uses 0x00 for reserved bytes in active entries, 0xFF for unused entries)
 ```
 
 ### Example 2: Multi-Granule File
@@ -1169,7 +1195,7 @@ Actual file: 4864 + 136 = 5000 bytes
 0x00: "DATA    BIN"
 0x0B: 0x02       # ML type
 0x0C: 0x00       # Binary
-0x0D: 0x05       # First granule = 5
+0x0D: 0x20       # First granule = 32 (Real CoCo starts at 32)
 0x0E: 0x00 0x88  # Last sector bytes = 136
 ```
 
@@ -1220,12 +1246,14 @@ To create a new blank disk:
 4. **Create FAT** (Track 17, Sector 2)
    ```
    Bytes 0-67: 0xFF (all free)
-   Bytes 68-255: 0xFF (unused)
+   Bytes 68-255: 0xFF (padding for fresh format)
+   Note: Real CoCo uses 0x00 padding when writing FAT during file operations
    ```
 
 5. **Clear directory** (Track 17, Sectors 3-11)
    ```
-   All bytes: 0xFF or 0x00
+   All bytes: 0xFF (fresh format - never-used entries)
+   Note: Deleted entries marked with first byte = 0x00
    ```
 
 ### Defragmentation

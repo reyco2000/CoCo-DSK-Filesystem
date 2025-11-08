@@ -88,7 +88,7 @@ class DSKImage:
 
     @classmethod
     def format_disk(cls, filename: str, tracks: int = 35, sectors_per_track: int = 18,
-                   sides: int = 1, add_jvc_header: bool = True) -> 'DSKImage':
+                   sides: int = 1, add_jvc_header: bool = False) -> 'DSKImage':
         """
         Create and format a new blank DSK/JVC disk image.
 
@@ -97,7 +97,7 @@ class DSKImage:
             tracks: Number of tracks (default: 35 for 160K disk)
             sectors_per_track: Sectors per track (default: 18)
             sides: Number of sides, 1 or 2 (default: 1)
-            add_jvc_header: Whether to add JVC header (default: True)
+            add_jvc_header: Whether to add JVC header (default: False, real CoCo standard)
 
         Returns:
             DSKImage object with formatted disk
@@ -138,11 +138,14 @@ class DSKImage:
         temp_dsk.directory = []
 
         # Initialize FAT sector (Track 17, Sector 2)
+        # Real CoCo uses 0xFF for padding on fresh formatted disks, 0xFF for free granules
         fat_sector = bytearray(b'\xFF' * cls.SECTOR_SIZE)
         fat_sector[:68] = bytes([0xFF] * 68)  # All granules free
         temp_dsk.write_sector(cls.DIR_TRACK, cls.FAT_SECTOR, bytes(fat_sector))
 
         # Initialize directory sectors (Track 17, Sectors 3-11)
+        # Real CoCo uses 0xFF for never-used entries (fresh format)
+        # Note: 0x00 is used for DELETED entries, but 0xFF for fresh format
         dir_sector = b'\xFF' * cls.SECTOR_SIZE
         for sector_num in range(cls.DIR_START_SECTOR, cls.DIR_END_SECTOR + 1):
             temp_dsk.write_sector(cls.DIR_TRACK, sector_num, dir_sector)
@@ -402,10 +405,20 @@ class DSKImage:
             return False
 
     def _find_free_granules(self, count: int) -> List[int]:
-        """Find specified number of free granules"""
+        """Find specified number of free granules
+
+        Real CoCo DECB allocates files starting from granule 32.
+        Granule 32-33 are on track 16 (just before directory track 17).
+        This matches real CoCo behavior observed from actual hardware.
+        """
         free = []
-        for i, fat_entry in enumerate(self.fat):
-            if fat_entry == 0xFF:
+
+        # Start searching from granule 32 (CoCo DECB standard starting point)
+        # Search 32-67 first, then wrap to 0-31 if needed
+        search_order = list(range(32, 68)) + list(range(0, 32))
+
+        for i in search_order:
+            if self.fat[i] == 0xFF:
                 free.append(i)
                 if len(free) >= count:
                     break
@@ -515,7 +528,7 @@ class DSKImage:
             entry_data[0x0C] = ascii_flag
             entry_data[0x0D] = free_granules[0]
             entry_data[0x0E:0x10] = struct.pack('>H', last_sector_bytes)
-            entry_data[0x10:0x20] = b'\xFF' * 16
+            entry_data[0x10:0x20] = b'\x00' * 16  # Real CoCo uses 0x00, not 0xFF
 
             # Write directory entry
             dir_sector_num, dir_offset = dir_slot
@@ -524,9 +537,13 @@ class DSKImage:
             self.write_sector(self.DIR_TRACK, dir_sector_num, bytes(sector_data))
 
             # Write updated FAT
-            fat_sector_data = bytearray(self.read_sector(self.DIR_TRACK, self.FAT_SECTOR))
+            # Real CoCo uses 0x00 padding in FAT sector when copying files
+            fat_sector_data = bytearray(b'\x00' * self.SECTOR_SIZE)
             fat_sector_data[:68] = bytes(self.fat)
             self.write_sector(self.DIR_TRACK, self.FAT_SECTOR, bytes(fat_sector_data))
+
+            # Re-read FAT to ensure in-memory state matches disk
+            self._read_fat()
 
             print(f"Uploaded '{pc_path}' as '{name.strip()}.{ext.strip()}' ({file_size} bytes, {granules_needed} granules)")
 
@@ -592,10 +609,13 @@ class DSKImage:
             fat_sector_data[:68] = bytes(self.fat)
             self.write_sector(self.DIR_TRACK, self.FAT_SECTOR, bytes(fat_sector_data))
 
-            # Mark directory entry as deleted (set first byte to 0xFF)
+            # Re-read FAT to ensure in-memory state matches disk
+            self._read_fat()
+
+            # Mark directory entry as deleted (set first byte to 0x00)
             dir_sector_num, dir_offset = dir_location
             sector_data = bytearray(self.read_sector(self.DIR_TRACK, dir_sector_num))
-            sector_data[dir_offset] = 0xFF  # Mark as deleted
+            sector_data[dir_offset] = 0x00  # Mark as deleted (real CoCo uses 0x00, not 0xFF)
             self.write_sector(self.DIR_TRACK, dir_sector_num, bytes(sector_data))
 
             # Re-read directory to update in-memory structure
@@ -652,8 +672,11 @@ Examples:
   # Delete a file from DSK
   python coco_dsk.py mydisk.dsk -d HELLO.BAS
 
-  # Format a new blank DSK image (160K, 35 tracks)
+  # Format a new blank DSK image (160K, 35 tracks, no JVC header - real CoCo format)
   python coco_dsk.py newdisk.dsk --format
+
+  # Format with JVC header (for emulators)
+  python coco_dsk.py newdisk.dsk --format --add-jvc
 
   # Format a 360K double-sided disk (40 tracks, 2 sides)
   python coco_dsk.py newdisk.dsk --format --tracks 40 --sides 2
@@ -694,13 +717,16 @@ File Modes (--mode option):
     parser.add_argument('--format', action='store_true', help='Format a new blank DSK image')
     parser.add_argument('--tracks', type=int, default=35, help='Number of tracks for --format (default: 35)')
     parser.add_argument('--sides', type=int, default=1, choices=[1,2], help='Number of sides for --format (default: 1)')
-    parser.add_argument('--no-jvc', action='store_true', help='Do not add JVC header when formatting')
+    parser.add_argument('--add-jvc', action='store_true', help='Add JVC header when formatting (default: no header, real CoCo standard)')
+    parser.add_argument('--no-jvc', action='store_true', help='Do not add JVC header (deprecated, this is now the default)')
 
     args = parser.parse_args()
 
     # Handle format command (creates new disk, doesn't need existing file)
     if args.format:
-        add_jvc = not args.no_jvc
+        # Default is no JVC header (real CoCo standard)
+        # --add-jvc explicitly adds header
+        add_jvc = args.add_jvc
         dsk = DSKImage.format_disk(
             args.dsk_file,
             tracks=args.tracks,

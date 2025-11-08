@@ -49,6 +49,8 @@ Implementation notes:
 - Values 0x00-0x43 reference the next granule index.
 - 0xFF marks a free granule.
 - 0xC0-0xC9 marks the final granule and encodes used sectors in the low nibble (0 == 9 sectors).
+- Real CoCo DECB uses `0x00` padding for FAT sector bytes 68-255 during file operations.
+- Fresh formatted disks use `0xFF` padding throughout FAT sector.
 
 ## 4. Directory Entry Cheatsheet
 
@@ -61,13 +63,20 @@ Each entry is 32 bytes located on Track 17, Sectors 3-11.
 0x0C       MODE (0xFF=ASCII, 0x00=Binary)
 0x0D       FIRST GRANULE (0-67)
 0x0E-0x0F  LAST SECTOR BYTE COUNT (big endian)
-0x10-0x1F  RESERVED (0xFF)
+0x10-0x1F  RESERVED (0x00 for active, 0xFF for unused, first byte 0x00 for deleted)
 ```
+
+**Important**: Real CoCo DECB behavior:
+- Active entry reserved bytes: `0x00` (not `0xFF`)
+- Fresh formatted disk: All `0xFF` for never-used entries
+- Deleted entries: First byte set to `0x00`
 
 Example entry for `HELLO.BAS` (BASIC, binary mode, starting granule 5, 147 trailing bytes):
 
 ```
-48 45 4C 4C 4F 20 20 20 | 42 41 53 | 00 | 00 | 05 | 00 93 | FF..FF
+48 45 4C 4C 4F 20 20 20 | 42 41 53 | 00 | 00 | 05 | 00 93 | 00..00
+                                                              ^^^^^
+                                                        Real CoCo uses 0x00
 ```
 
 ## 5. Read/Write Reference Implementations
@@ -88,11 +97,37 @@ def read_file(image, fat, entry):
 
 ```python
 def write_file(fat, granules, tail_sectors):
+    """
+    Write file allocation to FAT.
+    Real CoCo DECB allocates starting from granule 32.
+    """
     for index, granule in enumerate(granules):
         if index == len(granules) - 1:
             fat[granule] = 0xC0 | (tail_sectors % 10)
         else:
             fat[granule] = granules[index + 1]
+
+    # Note: Real CoCo uses 0x00 padding when writing FAT sector
+    fat_sector = bytearray(256)
+    fat_sector[:68] = bytes(fat)
+    # Bytes 68-255 are 0x00 (not 0xFF) during file operations
+    return bytes(fat_sector)
+
+def find_free_granules(fat, count):
+    """
+    Find free granules using real CoCo DECB allocation strategy.
+    Start from granule 32, then wrap to 0-31 if needed.
+    """
+    free = []
+    # Search order: 32-67, then 0-31
+    search_order = list(range(32, 68)) + list(range(0, 32))
+
+    for i in search_order:
+        if fat[i] == 0xFF:
+            free.append(i)
+            if len(free) >= count:
+                break
+    return free
 ```
 
 ## 6. Troubleshooting Checklist
@@ -101,6 +136,11 @@ def write_file(fat, granules, tail_sectors):
 - **Short reads**: compare expected granule count against traversed FAT chain.
 - **Write failures**: snapshot the image, then diff FAT and directory sectors after the operation.
 - **Cross-compatibility**: some emulators expect `first_sector_id == 0`; adjust header byte 3 when synthesizing disks.
+- **Deletion markers**: Real CoCo DECB uses `0x00` for first byte of deleted entries, not all bytes.
+- **Reserved bytes**: Active directory entries use `0x00` padding; fresh formats use `0xFF`.
+- **FAT padding**: Real CoCo uses `0x00` for FAT sector padding (bytes 68-255) during file writes.
+- **Allocation order**: Files start allocating from granule 32 (track 16) on real hardware.
+- **JVC headers**: Real CoCo disks have NO header; JVC headers are for emulators only.
 
 ## Rendering This Guide to PDF
 
