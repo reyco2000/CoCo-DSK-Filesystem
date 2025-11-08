@@ -1610,7 +1610,7 @@ This document is provided for educational purposes to preserve and document the 
 - dsktools library documentation by Mark Seminatore
 - Community documentation and reverse engineering
 
-**Created by**: Claude Code based on dsktools and CoCo community resources
+**Created by**: reyco2000 (Reinaldo Torres) using Claude Code, based on dsktools and CoCo community resources
 
 ---
 
