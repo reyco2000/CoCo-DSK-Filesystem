@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRS-80 CoCo DSK Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #00ff00;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #000;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #00cccc;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .control-panel {
+            background: #111;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .control-panel.active {
+            display: block;
+        }
+
+        .control-panel h2 {
+            color: #ffff00;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #003300;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .upload-section {
+            text-align: center;
+            padding: 60px 20px;
+            border: 3px dashed #00ff00;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .upload-section h2 {
+            color: #ffff00;
+            margin-bottom: 20px;
+        }
+
+        .file-input-wrapper {
+            display: inline-block;
+            margin: 20px 0;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            background: #003300;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 15px 30px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .file-input-label:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        .file-list {
+            margin-top: 20px;
+        }
+
+        .file-list table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #111;
+        }
+
+        .file-list th {
+            background: #003300;
+            color: #ffff00;
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #00ff00;
+        }
+
+        .file-list td {
+            padding: 10px;
+            border: 1px solid #004400;
+            color: #00ff00;
+        }
+
+        .file-list tr:hover {
+            background: #002200;
+        }
+
+        .file-link {
+            color: #00ccff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .file-link:hover {
+            color: #00ffff;
+            text-decoration: underline;
+        }
+
+        .delete-btn {
+            background: #330000;
+            color: #ff0000;
+            border: 1px solid #ff0000;
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+
+        .delete-btn:hover {
+            background: #ff0000;
+            color: #fff;
+        }
+
+        .status-bar {
+            background: #111;
+            border: 2px solid #00ff00;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .status-bar.active {
+            display: block;
+        }
+
+        .status-info {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .status-item {
+            color: #00cccc;
+        }
+
+        .status-item strong {
+            color: #ffff00;
+        }
+
+        .modified-badge {
+            display: inline-block;
+            background: #ff6600;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: #000;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-content h3 {
+            color: #ffff00;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #00ff00;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            background: #111;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            border-radius: 3px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+        }
+
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .message.error {
+            background: #330000;
+            border: 2px solid #ff0000;
+            color: #ff0000;
+        }
+
+        .message.success {
+            background: #003300;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+        }
+
+        .message.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .file-list table {
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TRS-80 COLOR COMPUTER DSK MANAGER</h1>
+        <div class="subtitle">Port 6809 - Web Interface for DSK/JVC Disk Images</div>
+
+        <div id="message" class="message"></div>
+
+        <!-- Control Panel (shown when DSK is mounted) -->
+        <div id="controlPanel" class="control-panel">
+            <h2>DSK OPERATIONS</h2>
+            <div class="controls">
+                <button onclick="showUploadModal()">UPLOAD FILE TO DSK</button>
+                <button onclick="showFormatModal()">FORMAT NEW DSK</button>
+                <button onclick="downloadDSK()">DOWNLOAD DSK IMAGE</button>
+                <button onclick="unmountDSK()">UNMOUNT DSK</button>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div id="statusBar" class="status-bar">
+            <div class="status-info">
+                <div class="status-item">
+                    <strong>DSK FILE:</strong> <span id="dskFilename">-</span>
+                    <span id="modifiedBadge" class="modified-badge" style="display: none;">MODIFIED</span>
+                </div>
+                <div class="status-item">
+                    <strong>FILES:</strong> <span id="fileCount">0</span>
+                </div>
+                <div class="status-item">
+                    <strong>FREE SPACE:</strong> <span id="freeSpace">0</span> bytes
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload/Mount Section -->
+        <div id="uploadSection" class="upload-section">
+            <h2>MOUNT A DSK IMAGE</h2>
+            <p>Select a DSK or JVC disk image file from your computer</p>
+            <div class="file-input-wrapper">
+                <input type="file" id="dskFileInput" accept=".dsk,.jvc" onchange="mountDSK()">
+                <label for="dskFileInput" class="file-input-label">SELECT DSK FILE</label>
+            </div>
+            <p style="margin-top: 20px; color: #00cccc;">OR</p>
+            <div style="margin-top: 20px;">
+                <button onclick="showFormatModal()">CREATE NEW DSK IMAGE</button>
+            </div>
+        </div>
+
+        <!-- File List (shown when DSK is mounted) -->
+        <div id="fileList" class="file-list" style="display: none;">
+            <h2 style="color: #ffff00; margin-bottom: 15px;">DSK DIRECTORY LISTING</h2>
+            <table id="fileTable">
+                <thead>
+                    <tr>
+                        <th>FILENAME</th>
+                        <th>TYPE</th>
+                        <th>MODE</th>
+                        <th>SIZE</th>
+                        <th>ACTIONS</th>
+                    </tr>
+                </thead>
+                <tbody id="fileTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Upload File Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <h3>UPLOAD FILE TO DSK</h3>
+            <div class="form-group">
+                <label>SELECT FILE:</label>
+                <input type="file" id="uploadFileInput">
+            </div>
+            <div class="form-group">
+                <label>DSK FILENAME (8.3 format):</label>
+                <input type="text" id="uploadDskName" placeholder="e.g., PROGRAM.BIN">
+            </div>
+            <div class="form-group">
+                <label>FILE TYPE:</label>
+                <select id="uploadFileType">
+                    <option value="ml">ML (Machine Language)</option>
+                    <option value="basic">BASIC</option>
+                    <option value="data">DATA</option>
+                    <option value="text">TEXT</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="uploadAsciiMode"> ASCII MODE
+                </label>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="uploadFile()">UPLOAD</button>
+                <button onclick="closeUploadModal()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Format DSK Modal -->
+    <div id="formatModal" class="modal">
+        <div class="modal-content">
+            <h3>FORMAT NEW DSK IMAGE</h3>
+            <div class="form-group">
+                <label>TRACKS:</label>
+                <select id="formatTracks">
+                    <option value="35" selected>35 (160KB)</option>
+                    <option value="40">40 (180KB)</option>
+                    <option value="80">80 (360KB)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>SIDES:</label>
+                <select id="formatSides">
+                    <option value="1" selected>1 (Single-sided)</option>
+                    <option value="2">2 (Double-sided)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="formatAddJvc"> ADD JVC HEADER
+                </label>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="formatDSK()">FORMAT</button>
+                <button onclick="closeFormatModal()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let mounted = false;
+
+        // Check status on page load
+        checkStatus();
+
+        function showMessage(text, type = 'success') {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type} active`;
+            setTimeout(() => {
+                msg.className = 'message';
+            }, 5000);
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                if (data.mounted) {
+                    mounted = true;
+                    document.getElementById('uploadSection').style.display = 'none';
+                    document.getElementById('controlPanel').classList.add('active');
+                    document.getElementById('statusBar').classList.add('active');
+                    refreshFileList();
+                } else {
+                    mounted = false;
+                    document.getElementById('uploadSection').style.display = 'block';
+                    document.getElementById('controlPanel').classList.remove('active');
+                    document.getElementById('statusBar').classList.remove('active');
+                    document.getElementById('fileList').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error checking status:', error);
+            }
+        }
+
+        async function mountDSK() {
+            const fileInput = document.getElementById('dskFileInput');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('dsk_file', file);
+
+            try {
+                const response = await fetch('/api/mount', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(`DSK mounted: ${data.filename} (${data.file_count} files)`, 'success');
+                    mounted = true;
+                    checkStatus();
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error mounting DSK: ${error}`, 'error');
+            }
+
+            fileInput.value = '';
+        }
+
+        async function refreshFileList() {
+            try {
+                const response = await fetch('/api/list');
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update status bar
+                    document.getElementById('dskFilename').textContent = data.dsk_filename;
+                    document.getElementById('fileCount').textContent = data.files.length;
+                    document.getElementById('freeSpace').textContent = data.free_bytes.toLocaleString();
+                    document.getElementById('modifiedBadge').style.display = data.modified ? 'inline-block' : 'none';
+
+                    // Update file list
+                    const tbody = document.getElementById('fileTableBody');
+                    tbody.innerHTML = '';
+
+                    if (data.files.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ffff00;">NO FILES IN DSK IMAGE</td></tr>';
+                    } else {
+                        data.files.forEach(file => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td><a class="file-link" onclick="downloadFile('${file.name}')">${file.name}</a></td>
+                                <td>${file.type}</td>
+                                <td>${file.mode}</td>
+                                <td>${file.size} bytes</td>
+                                <td><button class="delete-btn" onclick="deleteFile('${file.name}')">DELETE</button></td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+
+                    document.getElementById('fileList').style.display = 'block';
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error refreshing file list: ${error}`, 'error');
+            }
+        }
+
+        async function downloadFile(filename) {
+            try {
+                window.location.href = `/api/download/${encodeURIComponent(filename)}`;
+            } catch (error) {
+                showMessage(`Error downloading file: ${error}`, 'error');
+            }
+        }
+
+        async function deleteFile(filename) {
+            if (!confirm(`Delete ${filename} from DSK?`)) return;
+
+            try {
+                const response = await fetch(`/api/delete/${encodeURIComponent(filename)}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(`File deleted: ${filename}`, 'success');
+                    refreshFileList();
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error deleting file: ${error}`, 'error');
+            }
+        }
+
+        function showUploadModal() {
+            document.getElementById('uploadModal').classList.add('active');
+            document.getElementById('uploadFileInput').value = '';
+            document.getElementById('uploadDskName').value = '';
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('uploadFileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showMessage('Please select a file', 'error');
+                return;
+            }
+
+            const dskName = document.getElementById('uploadDskName').value.trim().toUpperCase();
+            const fileType = document.getElementById('uploadFileType').value;
+            const asciiMode = document.getElementById('uploadAsciiMode').checked;
+
+            const formData = new FormData();
+            formData.append('file', file);
+            if (dskName) formData.append('dsk_name', dskName);
+            formData.append('file_type', fileType);
+            formData.append('ascii_mode', asciiMode);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    closeUploadModal();
+                    refreshFileList();
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error uploading file: ${error}`, 'error');
+            }
+        }
+
+        function showFormatModal() {
+            document.getElementById('formatModal').classList.add('active');
+        }
+
+        function closeFormatModal() {
+            document.getElementById('formatModal').classList.remove('active');
+        }
+
+        async function formatDSK() {
+            const tracks = parseInt(document.getElementById('formatTracks').value);
+            const sides = parseInt(document.getElementById('formatSides').value);
+            const addJvc = document.getElementById('formatAddJvc').checked;
+
+            try {
+                const response = await fetch('/api/format', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tracks: tracks,
+                        sides: sides,
+                        add_jvc: addJvc
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    closeFormatModal();
+                    mounted = true;
+                    checkStatus();
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error formatting DSK: ${error}`, 'error');
+            }
+        }
+
+        async function downloadDSK() {
+            try {
+                window.location.href = '/api/download-dsk';
+            } catch (error) {
+                showMessage(`Error downloading DSK: ${error}`, 'error');
+            }
+        }
+
+        async function unmountDSK() {
+            if (!confirm('Unmount DSK? Any unsaved changes will be lost.')) return;
+
+            try {
+                const response = await fetch('/api/unmount', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('DSK unmounted', 'success');
+                    mounted = false;
+                    checkStatus();
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error unmounting DSK: ${error}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
