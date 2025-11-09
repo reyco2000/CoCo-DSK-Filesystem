@@ -64,11 +64,30 @@
             padding: 8px;
             border-bottom: 2px solid #0f0;
             font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .panel.active .panel-header {
             background-color: #004444;
             border-bottom-color: #0ff;
+        }
+
+        .select-pc-btn {
+            background-color: #005500;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            border-radius: 3px;
+        }
+
+        .select-pc-btn:hover {
+            background-color: #007700;
+            box-shadow: 0 0 5px #0f0;
         }
 
         .panel-path {
@@ -309,7 +328,10 @@
         <div class="panels">
             <!-- Left Panel: PC Files -->
             <div class="panel active" id="pc-panel">
-                <div class="panel-header">PC Files</div>
+                <div class="panel-header">
+                    <span>PC Files</span>
+                    <button class="select-pc-btn" onclick="selectFromPC()" id="select-pc-btn">Select from PC</button>
+                </div>
                 <div class="panel-path" id="pc-path">Loading...</div>
                 <div class="panel-content" id="pc-content">
                     <div class="loading">Loading files...</div>
@@ -318,11 +340,16 @@
 
             <!-- Right Panel: DSK Files -->
             <div class="panel" id="dsk-panel">
-                <div class="panel-header">DSK Image: [None Loaded]</div>
+                <div class="panel-header">
+                    <span id="dsk-header-text">DSK Image: [None Loaded]</span>
+                </div>
                 <div class="panel-path" id="dsk-path">No DSK loaded</div>
                 <div class="panel-content" id="dsk-content">
                     <div style="padding: 20px; text-align: center; color: #888;">
-                        Select a .dsk or .jvc file from the left panel and press ENTER to load it.
+                        <p>No DSK loaded.</p>
+                        <p style="margin-top: 10px;">To load a DSK:</p>
+                        <p>- Click "Select DSK" button to upload from your computer, or</p>
+                        <p>- Select a .dsk/.jvc file from left panel and press ENTER</p>
                     </div>
                 </div>
             </div>
@@ -331,25 +358,22 @@
         <div class="footer">
             <div class="function-keys">
                 <div class="function-key" onclick="showInfo()">
-                    <span class="key">F2</span> Info
+                    Info
                 </div>
                 <div class="function-key" onclick="viewFile()">
-                    <span class="key">F3</span> View
+                    View
                 </div>
                 <div class="function-key" onclick="copyFile()">
-                    <span class="key">F5</span> Copy
+                    Copy
                 </div>
                 <div class="function-key" onclick="renameFile()">
-                    <span class="key">F6</span> Rename
+                    Rename
                 </div>
                 <div class="function-key" onclick="formatDSK()">
-                    <span class="key">F7</span> Format
+                    Format DSK
                 </div>
                 <div class="function-key" onclick="deleteFile()">
-                    <span class="key">F8</span> Delete
-                </div>
-                <div class="function-key" onclick="uploadFile()">
-                    <span class="key">F9</span> Upload
+                    Delete
                 </div>
             </div>
             <div class="status-bar">
@@ -386,11 +410,24 @@
         let currentDSKPath = '';
         let dskLoaded = false;
 
+        // Update the Select from PC button text based on DSK state
+        function updateSelectButton() {
+            const btn = document.getElementById('select-pc-btn');
+            if (btn) {
+                if (dskLoaded) {
+                    btn.textContent = 'Select File';
+                } else {
+                    btn.textContent = 'Select DSK';
+                }
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadPCFiles();
             setupKeyboardNavigation();
             setupPanelClicks();
+            updateSelectButton();
         });
 
         // Setup panel clicking
@@ -550,12 +587,14 @@
                     dskFiles = data.files;
                     dskLoaded = true;
                     dskSelectedIndex = 0;
-                    document.querySelector('#dsk-panel .panel-header').textContent = `DSK Image: ${data.name}`;
+                    document.getElementById('dsk-header-text').textContent = `DSK Image: ${data.name}`;
                     document.getElementById('dsk-path').textContent = `Files: ${data.files.length} | Free: ${data.free_kb.toFixed(1)}KB`;
+                    updateSelectButton();
                     renderDSKFiles();
                 } else {
                     dskFiles = [];
                     dskLoaded = false;
+                    updateSelectButton();
                     document.getElementById('dsk-content').innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">No DSK loaded</div>';
                 }
             } catch (error) {
@@ -1056,17 +1095,78 @@
             }
         }
 
-        // F9 - Upload file to PC
+        // Select from PC - intelligent file selection based on context
+        function selectFromPC() {
+            if (!dskLoaded) {
+                // No DSK loaded - prompt to select DSK image from PC
+                showModal('Select DSK Image from PC', `
+                    <div class="form-group">
+                        <label>Upload a DSK or JVC image file from your computer:</label>
+                        <input type="file" id="upload-file" accept=".dsk,.jvc,.DSK,.JVC">
+                        <div style="margin-top: 10px; color: #888; font-size: 11px;">
+                            The file will be uploaded to the current PC directory and then loaded.
+                        </div>
+                    </div>
+                `, `
+                    <button onclick="executeSelectDSK()">Upload & Load</button>
+                    <button onclick="closeModal()">Cancel</button>
+                `);
+            } else {
+                // DSK is loaded - prompt to select file to upload to DSK
+                showModal('Select File from PC', `
+                    <div class="form-group">
+                        <label>Upload a file from your computer to copy to DSK:</label>
+                        <input type="file" id="upload-file">
+                        <div style="margin-top: 10px; color: #888; font-size: 11px;">
+                            The file will be uploaded to the current PC directory, then you can use Copy to add it to the DSK.
+                        </div>
+                    </div>
+                `, `
+                    <button onclick="executeUpload()">Upload</button>
+                    <button onclick="closeModal()">Cancel</button>
+                `);
+            }
+        }
+
+        // Execute DSK selection and load
+        async function executeSelectDSK() {
+            const fileInput = document.getElementById('upload-file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showError('No file selected');
+                return;
+            }
+
+            // First upload the file
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const uploadResponse = await fetch('/api/file/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const uploadData = await uploadResponse.json();
+                closeModal();
+
+                if (uploadResponse.ok) {
+                    // Now load the DSK
+                    await loadDSK(uploadData.path);
+                    loadPCFiles();
+                } else {
+                    showError(uploadData.error);
+                }
+            } catch (error) {
+                closeModal();
+                showError('Upload error: ' + error.message);
+            }
+        }
+
+        // F9 - Upload file to PC (kept for backwards compatibility)
         function uploadFile() {
-            showModal('Upload File to PC', `
-                <div class="form-group">
-                    <label>Select file to upload to current PC directory:</label>
-                    <input type="file" id="upload-file">
-                </div>
-            `, `
-                <button onclick="executeUpload()">Upload</button>
-                <button onclick="closeModal()">Cancel</button>
-            `);
+            selectFromPC();
         }
 
         // Execute upload
