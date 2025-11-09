@@ -518,9 +518,9 @@ Maximum 72 files per disk. You'll need to use a new disk image.
 - [Disk BASIC File Structure](https://www.lomont.org/software/misc/coco/Disk%20Basic%20Unravelled.pdf) - Official documentation
 - [JVC Disk Image Format](http://www.tim-mann.org/trs80/dsk.html) - Format specification
 
-## License
+## 📝 License
 
-Based on dsktools by mseminatore. This tool is provided for educational and preservation purposes.
+This project is open source and available under the MIT License.
 
 ## Version History
 
