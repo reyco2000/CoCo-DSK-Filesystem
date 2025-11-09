@@ -545,8 +545,23 @@
                     } else {
                         data.files.forEach(file => {
                             const row = document.createElement('tr');
+                            const isBasBinary = file.name.toUpperCase().endsWith('.BAS') && file.type === 'BASIC' && file.mode === 'BIN';
+
+                            let filenameCell;
+                            if (isBasBinary) {
+                                // Show two download options for BASIC binary files
+                                filenameCell = `<td>
+                                    <a class="file-link" onclick="downloadFile('${file.name}', 'binary')">${file.name}</a>
+                                    <br><small style="color: #00cccc;">
+                                        [ <a class="file-link" onclick="downloadFile('${file.name}', 'ascii')" style="font-size: 0.9em;">Download as ASCII</a> ]
+                                    </small>
+                                </td>`;
+                            } else {
+                                filenameCell = `<td><a class="file-link" onclick="downloadFile('${file.name}')">${file.name}</a></td>`;
+                            }
+
                             row.innerHTML = `
-                                <td><a class="file-link" onclick="downloadFile('${file.name}')">${file.name}</a></td>
+                                ${filenameCell}
                                 <td>${file.type}</td>
                                 <td>${file.mode}</td>
                                 <td>${file.size} bytes</td>
@@ -565,9 +580,10 @@
             }
         }
 
-        async function downloadFile(filename) {
+        async function downloadFile(filename, format = 'binary') {
             try {
-                window.location.href = `/api/download/${encodeURIComponent(filename)}`;
+                const url = `/api/download/${encodeURIComponent(filename)}?format=${format}`;
+                window.location.href = url;
             } catch (error) {
                 showMessage(`Error downloading file: ${error}`, 'error');
             }
