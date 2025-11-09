@@ -395,16 +395,23 @@
         <div class="modal-content">
             <h3>UPLOAD FILE TO DSK</h3>
             <div class="form-group">
-                <label>SELECT FILE:</label>
-                <input type="file" id="uploadFileInput">
+                <label>SELECT FILE FROM YOUR COMPUTER:</label>
+                <input type="file" id="uploadFileInput" style="display: none;" onchange="onFileSelected()">
+                <button onclick="document.getElementById('uploadFileInput').click()" style="width: 100%; margin-top: 10px;">
+                    SELECT FILE
+                </button>
+                <div id="selectedFileName" style="margin-top: 10px; color: #00cccc; min-height: 20px; font-style: italic;">
+                    No file selected
+                </div>
             </div>
             <div class="form-group">
                 <label>DSK FILENAME (8.3 format):</label>
-                <input type="text" id="uploadDskName" placeholder="e.g., PROGRAM.BIN">
+                <input type="text" id="uploadDskName" placeholder="e.g., PROGRAM.BIN" disabled>
+                <small style="color: #00cccc; display: block; margin-top: 5px;">Leave blank to auto-generate from PC filename</small>
             </div>
             <div class="form-group">
                 <label>FILE TYPE:</label>
-                <select id="uploadFileType">
+                <select id="uploadFileType" disabled>
                     <option value="ml">ML (Machine Language)</option>
                     <option value="basic">BASIC</option>
                     <option value="data">DATA</option>
@@ -413,11 +420,11 @@
             </div>
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="uploadAsciiMode"> ASCII MODE
+                    <input type="checkbox" id="uploadAsciiMode" disabled> ASCII MODE
                 </label>
             </div>
             <div class="modal-buttons">
-                <button onclick="uploadFile()">UPLOAD</button>
+                <button id="uploadButton" onclick="uploadFile()" disabled>UPLOAD TO DSK</button>
                 <button onclick="closeUploadModal()">CANCEL</button>
             </div>
         </div>
@@ -612,12 +619,63 @@
 
         function showUploadModal() {
             document.getElementById('uploadModal').classList.add('active');
+
+            // Reset form
             document.getElementById('uploadFileInput').value = '';
             document.getElementById('uploadDskName').value = '';
+            document.getElementById('uploadFileType').value = 'ml';
+            document.getElementById('uploadAsciiMode').checked = false;
+            document.getElementById('selectedFileName').textContent = 'No file selected';
+
+            // Disable form fields until file is selected
+            document.getElementById('uploadDskName').disabled = true;
+            document.getElementById('uploadFileType').disabled = true;
+            document.getElementById('uploadAsciiMode').disabled = true;
+            document.getElementById('uploadButton').disabled = true;
         }
 
         function closeUploadModal() {
             document.getElementById('uploadModal').classList.remove('active');
+        }
+
+        function onFileSelected() {
+            const fileInput = document.getElementById('uploadFileInput');
+            const file = fileInput.files[0];
+
+            if (file) {
+                // Show selected filename
+                document.getElementById('selectedFileName').textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                document.getElementById('selectedFileName').style.color = '#00ff00';
+
+                // Enable form fields
+                document.getElementById('uploadDskName').disabled = false;
+                document.getElementById('uploadFileType').disabled = false;
+                document.getElementById('uploadAsciiMode').disabled = false;
+                document.getElementById('uploadButton').disabled = false;
+
+                // Auto-detect file type based on extension
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (ext === 'bas') {
+                    document.getElementById('uploadFileType').value = 'basic';
+                } else if (ext === 'txt') {
+                    document.getElementById('uploadFileType').value = 'text';
+                    document.getElementById('uploadAsciiMode').checked = true;
+                } else if (ext === 'dat') {
+                    document.getElementById('uploadFileType').value = 'data';
+                } else {
+                    document.getElementById('uploadFileType').value = 'ml';
+                }
+            } else {
+                // No file selected
+                document.getElementById('selectedFileName').textContent = 'No file selected';
+                document.getElementById('selectedFileName').style.color = '#00cccc';
+
+                // Disable form fields
+                document.getElementById('uploadDskName').disabled = true;
+                document.getElementById('uploadFileType').disabled = true;
+                document.getElementById('uploadAsciiMode').disabled = true;
+                document.getElementById('uploadButton').disabled = true;
+            }
         }
 
         async function uploadFile() {
