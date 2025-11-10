@@ -30,7 +30,15 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 mounted_disks = {}
 
 # Path to diskii executable
-DISKII_PATH = os.path.expanduser("~/go/bin/diskii")
+# Get GOPATH and construct diskii path
+try:
+    gopath = subprocess.run(['go', 'env', 'GOPATH'], capture_output=True, text=True, check=True)
+    DISKII_PATH = os.path.join(gopath.stdout.strip(), 'bin', 'diskii')
+except:
+    # Fallback to common locations
+    DISKII_PATH = '/root/go/bin/diskii'
+    if not os.path.exists(DISKII_PATH):
+        DISKII_PATH = os.path.expanduser('~/go/bin/diskii')
 
 
 def get_session_disk():
@@ -67,11 +75,20 @@ def clear_session_disk():
     session.pop('disk_modified', None)
 
 
-def run_diskii(args):
+def run_diskii(args, binary=False):
     """Run diskii command and return output"""
     cmd = [DISKII_PATH] + args
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.stdout, result.stderr, result.returncode
+    try:
+        if binary:
+            result = subprocess.run(cmd, capture_output=True, check=False)
+            return result.stdout, result.stderr.decode('utf-8', errors='replace'), result.returncode
+        else:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            return result.stdout, result.stderr, result.returncode
+    except FileNotFoundError as e:
+        return b"" if binary else "", f"diskii not found at {DISKII_PATH}: {str(e)}", 1
+    except Exception as e:
+        return b"" if binary else "", f"Error running diskii: {str(e)}", 1
 
 
 def parse_ls_output(output):
