@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple II Disk Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #2d1b69 0%, #5a3a9a 100%);
+            color: #00ff00;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #000;
+            border: 3px solid #ff6600;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(255, 102, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #ff6600;
+            text-shadow: 0 0 10px #ff6600;
+            margin-bottom: 10px;
+            font-size: 2em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .color-bars {
+            display: flex;
+            gap: 5px;
+        }
+
+        .color-bar {
+            width: 60px;
+            height: 30px;
+            border-radius: 3px;
+        }
+
+        .color-bar.orange {
+            background: #ff6600;
+        }
+
+        .color-bar.green {
+            background: #00ff00;
+        }
+
+        .color-bar.purple {
+            background: #9900ff;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #00cccc;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        button {
+            background: #663300;
+            color: #ff6600;
+            border: 2px solid #ff6600;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #ff6600;
+            color: #000;
+            box-shadow: 0 0 10px #ff6600;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .upload-section {
+            text-align: center;
+            padding: 60px 20px;
+            border: 3px dashed #ff6600;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .upload-section h2 {
+            color: #ff6600;
+            margin-bottom: 20px;
+        }
+
+        .file-input-wrapper {
+            display: inline-block;
+            margin: 20px 0;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            background: #663300;
+            color: #ff6600;
+            border: 2px solid #ff6600;
+            padding: 15px 30px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .file-input-label:hover {
+            background: #ff6600;
+            color: #000;
+            box-shadow: 0 0 10px #ff6600;
+        }
+
+        .file-list table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #111;
+            margin-top: 20px;
+        }
+
+        .file-list th {
+            background: #663300;
+            color: #ff6600;
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ff6600;
+        }
+
+        .file-list td {
+            padding: 10px;
+            border: 1px solid #444;
+            color: #00ff00;
+        }
+
+        .file-list tr:hover {
+            background: #222;
+        }
+
+        .download-btn {
+            background: #003300;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 5px 10px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+
+        .download-btn:hover {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .status-bar {
+            background: #111;
+            border: 2px solid #ff6600;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .status-bar.active {
+            display: block;
+        }
+
+        .status-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .disk-mounted-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .disk-mounted-btn {
+            background: #663300;
+            color: #ff6600;
+            border: 2px solid #ff6600;
+            padding: 8px 15px;
+            font-size: 0.9em;
+            cursor: default;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(255, 102, 0, 0.3);
+        }
+
+        .unmount-btn {
+            background: #440000;
+            color: #ff6600;
+            border: 2px solid #ff6600;
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+
+        .download-disk-btn {
+            background: #003366;
+            color: #00ccff;
+            border: 2px solid #00ccff;
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .message.error {
+            background: #330000;
+            border: 2px solid #ff0000;
+            color: #ff0000;
+        }
+
+        .message.success {
+            background: #003300;
+            border: 2px solid #00ff00;
+            color: #00ff00;
+        }
+
+        .message.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <div class="color-bars">
+                <div class="color-bar orange"></div>
+                <div class="color-bar green"></div>
+                <div class="color-bar purple"></div>
+            </div>
+            <span>APPLE II DISK MANAGER</span>
+        </h1>
+        <div class="subtitle">Port 6502 - Web Interface for Apple II Disk Images</div>
+
+        <div id="message" class="message"></div>
+
+        <!-- Status Bar -->
+        <div id="statusBar" class="status-bar">
+            <div class="status-info">
+                <div class="disk-mounted-section">
+                    <button class="disk-mounted-btn" id="diskMountedBtn">
+                        <span id="diskFilename">DISK.DSK</span> - Mounted
+                    </button>
+                    <button class="download-disk-btn" id="downloadDiskBtn" onclick="downloadDisk()">Download Disk Image</button>
+                    <button class="unmount-btn" onclick="unmountDisk()">Unmount</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload/Mount Section -->
+        <div id="uploadSection" class="upload-section">
+            <h2>Mount an Apple II Disk Image</h2>
+            <p>Select a .dsk, .do, or .po disk image file from your computer</p>
+            <div class="file-input-wrapper">
+                <input type="file" id="diskFileInput" accept=".dsk,.do,.po" onchange="mountDisk()">
+                <label for="diskFileInput" class="file-input-label">Select Disk File</label>
+            </div>
+        </div>
+
+        <!-- File List -->
+        <div id="fileList" class="file-list" style="display: none;">
+            <h2 style="color: #ff6600; margin-bottom: 15px;">Disk Content</h2>
+            <table id="fileTable">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Type</th>
+                        <th>Size</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="fileTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let mounted = false;
+
+        checkStatus();
+
+        function showMessage(text, type = 'success') {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type} active`;
+            setTimeout(() => {
+                msg.className = 'message';
+            }, 5000);
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                if (data.mounted) {
+                    mounted = true;
+                    document.getElementById('uploadSection').style.display = 'none';
+                    document.getElementById('statusBar').classList.add('active');
+                    refreshFileList();
+                } else {
+                    mounted = false;
+                    document.getElementById('uploadSection').style.display = 'block';
+                    document.getElementById('statusBar').classList.remove('active');
+                    document.getElementById('fileList').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error checking status:', error);
+            }
+        }
+
+        async function mountDisk() {
+            const fileInput = document.getElementById('diskFileInput');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('disk_file', file);
+
+            try {
+                const response = await fetch('/api/mount', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(`Disk mounted: ${data.filename} (${data.file_count} files)`, 'success');
+                    mounted = true;
+                    checkStatus();
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error mounting disk: ${error}`, 'error');
+            }
+
+            fileInput.value = '';
+        }
+
+        async function refreshFileList() {
+            try {
+                const response = await fetch('/api/list');
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('diskFilename').textContent = data.disk_filename;
+
+                    const tbody = document.getElementById('fileTableBody');
+                    tbody.innerHTML = '';
+
+                    if (data.files.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #ff6600;">No files in disk image</td></tr>';
+                    } else {
+                        data.files.forEach(file => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${file.name}</td>
+                                <td>${file.type}</td>
+                                <td>${file.size}</td>
+                                <td><button class="download-btn" onclick="downloadFile('${file.name}')">Download</button></td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+
+                    document.getElementById('fileList').style.display = 'block';
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error refreshing file list: ${error}`, 'error');
+            }
+        }
+
+        async function downloadFile(filename) {
+            try {
+                window.location.href = `/api/download/${encodeURIComponent(filename)}`;
+            } catch (error) {
+                showMessage(`Error downloading file: ${error}`, 'error');
+            }
+        }
+
+        async function downloadDisk() {
+            try {
+                window.location.href = '/api/download-disk';
+            } catch (error) {
+                showMessage(`Error downloading disk: ${error}`, 'error');
+            }
+        }
+
+        async function unmountDisk() {
+            if (!confirm('Unmount disk?')) return;
+
+            try {
+                const response = await fetch('/api/unmount', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('Disk unmounted', 'success');
+                    mounted = false;
+                    checkStatus();
+                } else {
+                    showMessage(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Error unmounting disk: ${error}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
