@@ -13,104 +13,53 @@ import tempfile
 import secrets
 from werkzeug.utils import secure_filename
 from coco_dsk import DSKImage
+from coco_detokenizer import detokenize_line, TOKENS, TOKENS_EXT
 import io
 
-# Color BASIC token table
-BASIC_TOKENS = {
-    0x80: "FOR", 0x81: "GO", 0x82: "REM", 0x83: "'", 0x84: "ELSE",
-    0x85: "IF", 0x86: "DATA", 0x87: "PRINT", 0x88: "ON", 0x89: "INPUT",
-    0x8A: "END", 0x8B: "NEXT", 0x8C: "DIM", 0x8D: "READ", 0x8E: "RUN",
-    0x8F: "RESTORE", 0x90: "RETURN", 0x91: "STOP", 0x92: "POKE", 0x93: "CONT",
-    0x94: "LIST", 0x95: "CLEAR", 0x96: "NEW", 0x97: "CLOAD", 0x98: "CSAVE",
-    0x99: "OPEN", 0x9A: "CLOSE", 0x9B: "LLIST", 0x9C: "SET", 0x9D: "RESET",
-    0x9E: "CLS", 0x9F: "MOTOR", 0xA0: "SOUND", 0xA1: "AUDIO", 0xA2: "EXEC",
-    0xA3: "SKIPF", 0xA4: "TAB(", 0xA5: "TO", 0xA6: "SUB", 0xA7: "THEN",
-    0xA8: "NOT", 0xA9: "STEP", 0xAA: "OFF", 0xAB: "+", 0xAC: "-",
-    0xAD: "*", 0xAE: "/", 0xAF: "^", 0xB0: "AND", 0xB1: "OR",
-    0xB2: ">", 0xB3: "=", 0xB4: "<", 0xB5: "DEL", 0xB6: "EDIT",
-    0xB7: "TRON", 0xB8: "TROFF", 0xB9: "DEF", 0xBA: "LET", 0xBB: "LINE",
-    0xBC: "PCLS", 0xBD: "PSET", 0xBE: "PRESET", 0xBF: "SCREEN", 0xC0: "PCLEAR",
-    0xC1: "COLOR", 0xC2: "CIRCLE", 0xC3: "PAINT", 0xC4: "GET", 0xC5: "PUT",
-    0xC6: "DRAW", 0xC7: "PCOPY", 0xC8: "PMODE", 0xC9: "PLAY", 0xCA: "DLOAD",
-    0xCB: "RENUM", 0xCC: "FN", 0xCD: "USING", 0xCE: "DIR", 0xCF: "DRIVE",
-    0xD0: "FIELD", 0xD1: "FILES", 0xD2: "KILL", 0xD3: "LOAD", 0xD4: "LSET",
-    0xD5: "MERGE", 0xD6: "RENAME", 0xD7: "RSET", 0xD8: "SAVE", 0xD9: "WRITE",
-    0xDA: "VERIFY", 0xDB: "UNLOAD", 0xDC: "DSKINI", 0xDD: "BACKUP", 0xDE: "COPY",
-    0xDF: "DSKI$", 0xE0: "DSKO$", 0xE1: "SGN", 0xE2: "INT", 0xE3: "ABS",
-    0xE4: "USR", 0xE5: "RND", 0xE6: "SIN", 0xE7: "PEEK", 0xE8: "LEN",
-    0xE9: "STR$", 0xEA: "VAL", 0xEB: "ASC", 0xEC: "CHR$", 0xED: "EOF",
-    0xEE: "JOYSTK", 0xEF: "LEFT$", 0xF0: "RIGHT$", 0xF1: "MID$", 0xF2: "POINT",
-    0xF3: "INKEY$", 0xF4: "MEM", 0xF5: "ATN", 0xF6: "COS", 0xF7: "TAN",
-    0xF8: "EXP", 0xF9: "FIX", 0xFA: "LOG", 0xFB: "POS", 0xFC: "SQR",
-    0xFD: "HEX$", 0xFE: "VARPTR", 0xFF: "INSTR"
-}
 
 def detokenize_basic(data):
     """Detokenize a Color BASIC program from binary to ASCII format"""
-    output = []
-    pos = 0
-
     try:
-        while pos < len(data):
-            # Check for end of program (0x00 0x00)
-            if pos + 1 < len(data) and data[pos] == 0x00 and data[pos + 1] == 0x00:
+        offset = 0
+        # Check for ML preamble (0xFF)
+        if data[0] == 0xFF:
+            offset = 5
+
+        result = []
+        first_line = True
+
+        while True:
+            if offset + 2 > len(data):
                 break
 
-            # Get pointer to next line (2 bytes, big-endian)
-            if pos + 2 > len(data):
+            # First line after ML preamble has no link pointer
+            if first_line:
+                line_number = (data[offset] << 8) + data[offset + 1]
+                start = offset + 2
+                first_line = False
+            else:
+                if offset + 4 > len(data):
+                    break
+                next_line = (data[offset] << 8) + data[offset + 1]
+                line_number = (data[offset + 2] << 8) + data[offset + 3]
+                if next_line == 0:
+                    break
+                start = offset + 4
+
+            if line_number == 0:
                 break
-            next_line = (data[pos] << 8) | data[pos + 1]
-            pos += 2
 
-            if next_line == 0:
-                break
+            # Find end of line (0x00 byte)
+            try:
+                zero_pos = data.index(0, start)
+            except ValueError:
+                zero_pos = len(data)
 
-            # Get line number (2 bytes, big-endian)
-            if pos + 2 > len(data):
-                break
-            line_num = (data[pos] << 8) | data[pos + 1]
-            pos += 2
+            line_bytes = data[start:zero_pos]
+            result.append(f"{line_number} {detokenize_line(line_bytes)}")
+            offset = zero_pos + 1
 
-            # Build line
-            line = f"{line_num} "
-
-            # Process tokens/characters until end of line (0x00)
-            while pos < len(data) and data[pos] != 0x00:
-                byte = data[pos]
-                pos += 1
-
-                if byte >= 0x80:  # Token
-                    token = BASIC_TOKENS.get(byte, f"[{byte:02X}]")
-                    # Add space before token if needed
-                    if line and line[-1] not in (' ', '(', ','):
-                        line += ' '
-                    line += token
-                    # Add space after token if it's a keyword
-                    if byte < 0xAB or byte > 0xB4:  # Not an operator
-                        line += ' '
-                elif byte == 0x0D:  # Carriage return within line
-                    line += '\n'
-                elif byte == 0x22:  # Quote
-                    line += chr(byte)
-                    # Copy everything until next quote or end of line
-                    while pos < len(data) and data[pos] != 0x22 and data[pos] != 0x00:
-                        line += chr(data[pos])
-                        pos += 1
-                    if pos < len(data) and data[pos] == 0x22:
-                        line += chr(data[pos])
-                        pos += 1
-                elif byte >= 0x20 and byte < 0x7F:  # Printable ASCII
-                    line += chr(byte)
-                else:  # Other control characters
-                    line += f"[{byte:02X}]"
-
-            # Skip the 0x00 end-of-line marker
-            if pos < len(data) and data[pos] == 0x00:
-                pos += 1
-
-            output.append(line.rstrip() + '\r\n')
-
-        return ''.join(output).encode('ascii', errors='replace')
+        return "\n".join(result).encode('utf-8')
 
     except Exception as e:
         # If detokenization fails, return original data
