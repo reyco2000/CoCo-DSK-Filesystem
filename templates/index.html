@@ -463,10 +463,10 @@
 
         <!-- Control Panel (shown when DSK is mounted) -->
         <div id="controlPanel" class="control-panel">
-            <h2>DSK OPERATIONS</h2>
+            <h2>Disk Operations</h2>
             <div class="controls">
-                <button onclick="showUploadModal()">UPLOAD FILE TO DSK</button>
-                <button onclick="showFormatModal()">FORMAT NEW DSK</button>
+                <button onclick="showUploadModal()">Upload File to DSK</button>
+                <button onclick="showFormatModal()">Format New DSK</button>
             </div>
         </div>
 
@@ -475,46 +475,46 @@
             <div class="status-info">
                 <div class="dsk-mounted-section">
                     <button class="dsk-mounted-btn" id="dskMountedBtn">
-                        <span id="dskFilename">DISK.DSK</span> - MOUNTED
-                        <span id="modifiedBadge" class="modified-badge" style="display: none;">MODIFIED</span>
+                        <span id="dskFilename">DISK.DSK</span> - Mounted
+                        <span id="modifiedBadge" class="modified-badge" style="display: none;">Modified</span>
                     </button>
-                    <button class="download-dsk-btn" id="downloadDskBtn" onclick="downloadDSK()">DOWNLOAD DSK IMAGE</button>
-                    <button class="unmount-btn" onclick="unmountDSK()">UNMOUNT</button>
+                    <button class="download-dsk-btn" id="downloadDskBtn" onclick="downloadDSK()">Download DSK Image</button>
+                    <button class="unmount-btn" onclick="unmountDSK()">Unmount</button>
                 </div>
                 <div class="status-item">
-                    <strong>FILES:</strong> <span id="fileCount">0</span>
+                    <strong>Files:</strong> <span id="fileCount">0</span>
                 </div>
                 <div class="status-item">
-                    <strong>FREE SPACE:</strong> <span id="freeSpace">0</span> bytes
+                    <strong>Free space:</strong> <span id="freeSpace">0</span> bytes
                 </div>
             </div>
         </div>
 
         <!-- Upload/Mount Section -->
         <div id="uploadSection" class="upload-section">
-            <h2>MOUNT A DSK IMAGE</h2>
+            <h2>Mount a DSK Image</h2>
             <p>Select a DSK or JVC disk image file from your computer</p>
             <div class="file-input-wrapper">
                 <input type="file" id="dskFileInput" accept=".dsk,.jvc" onchange="mountDSK()">
-                <label for="dskFileInput" class="file-input-label">SELECT DSK FILE</label>
+                <label for="dskFileInput" class="file-input-label">Select DSK File</label>
             </div>
             <p style="margin-top: 20px; color: #00cccc;">OR</p>
             <div style="margin-top: 20px;">
-                <button onclick="showFormatModal()">CREATE NEW DSK IMAGE</button>
+                <button onclick="showFormatModal()">Create New DSK Image</button>
             </div>
         </div>
 
         <!-- File List (shown when DSK is mounted) -->
         <div id="fileList" class="file-list" style="display: none;">
-            <h2 style="color: #ffff00; margin-bottom: 15px;">DSK DIRECTORY LISTING</h2>
+            <h2 style="color: #ffff00; margin-bottom: 15px;">Disk Content</h2>
             <table id="fileTable">
                 <thead>
                     <tr>
-                        <th>FILENAME</th>
-                        <th>TYPE</th>
-                        <th>MODE</th>
-                        <th>SIZE</th>
-                        <th>ACTIONS</th>
+                        <th>Filename</th>
+                        <th>Type</th>
+                        <th>Mode</th>
+                        <th>Size</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="fileTableBody">
@@ -526,24 +526,24 @@
     <!-- Upload File Modal -->
     <div id="uploadModal" class="modal">
         <div class="modal-content">
-            <h3>UPLOAD FILE TO DSK</h3>
+            <h3>Upload File to DSK</h3>
             <div class="form-group">
-                <label>SELECT FILE FROM YOUR COMPUTER:</label>
+                <label>Select file from your computer:</label>
                 <input type="file" id="uploadFileInput" style="display: none;" onchange="onFileSelected()">
                 <button onclick="document.getElementById('uploadFileInput').click()" style="width: 100%; margin-top: 10px;">
-                    SELECT FILE
+                    Select File
                 </button>
                 <div id="selectedFileName" style="margin-top: 10px; color: #00cccc; min-height: 20px; font-style: italic;">
                     No file selected
                 </div>
             </div>
             <div class="form-group">
-                <label>DSK FILENAME (8.3 format):</label>
+                <label>DSK filename (8.3 format):</label>
                 <input type="text" id="uploadDskName" placeholder="e.g., PROGRAM.BIN" disabled>
                 <small style="color: #00cccc; display: block; margin-top: 5px;">Leave blank to auto-generate from PC filename</small>
             </div>
             <div class="form-group">
-                <label>FILE TYPE:</label>
+                <label>File type:</label>
                 <select id="uploadFileType" disabled>
                     <option value="ml">ML (Machine Language)</option>
                     <option value="basic">BASIC</option>
@@ -553,12 +553,12 @@
             </div>
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="uploadAsciiMode" disabled> ASCII MODE
+                    <input type="checkbox" id="uploadAsciiMode" disabled> ASCII mode
                 </label>
             </div>
             <div class="modal-buttons">
-                <button id="uploadButton" onclick="uploadFile()" disabled>UPLOAD TO DSK</button>
-                <button onclick="closeUploadModal()">CANCEL</button>
+                <button id="uploadButton" onclick="uploadFile()" disabled>Upload to DSK</button>
+                <button onclick="closeUploadModal()">Cancel</button>
             </div>
         </div>
     </div>
@@ -566,9 +566,9 @@
     <!-- Format DSK Modal -->
     <div id="formatModal" class="modal">
         <div class="modal-content">
-            <h3>FORMAT NEW DSK IMAGE</h3>
+            <h3>Format New DSK Image</h3>
             <div class="form-group">
-                <label>TRACKS:</label>
+                <label>Tracks:</label>
                 <select id="formatTracks">
                     <option value="35" selected>35 (160KB)</option>
                     <option value="40">40 (180KB)</option>
@@ -576,7 +576,7 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>SIDES:</label>
+                <label>Sides:</label>
                 <select id="formatSides">
                     <option value="1" selected>1 (Single-sided)</option>
                     <option value="2">2 (Double-sided)</option>
@@ -584,12 +584,12 @@
             </div>
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="formatAddJvc"> ADD JVC HEADER
+                    <input type="checkbox" id="formatAddJvc"> Add JVC header
                 </label>
             </div>
             <div class="modal-buttons">
-                <button onclick="formatDSK()">FORMAT</button>
-                <button onclick="closeFormatModal()">CANCEL</button>
+                <button onclick="formatDSK()">Format</button>
+                <button onclick="closeFormatModal()">Cancel</button>
             </div>
         </div>
     </div>
@@ -689,7 +689,7 @@
                     tbody.innerHTML = '';
 
                     if (data.files.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ffff00;">NO FILES IN DSK IMAGE</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ffff00;">No files in DSK image</td></tr>';
                     } else {
                         data.files.forEach(file => {
                             const row = document.createElement('tr');
@@ -700,14 +700,14 @@
                             if (isBasBinary) {
                                 // For BASIC binary files: show both download options
                                 actionsCell = `<td>
-                                    <button class="download-btn" onclick="downloadFile('${file.name}', 'binary')">DOWNLOAD</button>
-                                    <button class="download-ascii-btn" onclick="downloadFile('${file.name}', 'ascii')">DOWNLOAD ASCII</button>
+                                    <button class="download-btn" onclick="downloadFile('${file.name}', 'binary')">Download</button>
+                                    <button class="download-ascii-btn" onclick="downloadFile('${file.name}', 'ascii')">Download ASCII</button>
                                     <button class="delete-btn" onclick="deleteFile('${file.name}')" title="Delete file">🗑️</button>
                                 </td>`;
                             } else {
                                 // For other files: show single download button
                                 actionsCell = `<td>
-                                    <button class="download-btn" onclick="downloadFile('${file.name}')">DOWNLOAD</button>
+                                    <button class="download-btn" onclick="downloadFile('${file.name}')">Download</button>
                                     <button class="delete-btn" onclick="deleteFile('${file.name}')" title="Delete file">🗑️</button>
                                 </td>`;
                             }
