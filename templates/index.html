@@ -172,17 +172,64 @@
             text-decoration: underline;
         }
 
+        .download-btn {
+            background: #003366;
+            color: #00ccff;
+            border: 1px solid #00ccff;
+            padding: 5px 10px;
+            font-size: 0.8em;
+            margin: 2px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+
+        .download-btn:hover {
+            background: #00ccff;
+            color: #000;
+            box-shadow: 0 0 8px #00ccff;
+        }
+
+        .download-ascii-btn {
+            background: #003300;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 5px 10px;
+            font-size: 0.8em;
+            margin: 2px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+
+        .download-ascii-btn:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 8px #00ff00;
+        }
+
         .delete-btn {
             background: #330000;
             color: #ff0000;
             border: 1px solid #ff0000;
             padding: 5px 10px;
             font-size: 0.8em;
+            margin: 2px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            border-radius: 3px;
+            transition: all 0.3s;
         }
 
         .delete-btn:hover {
             background: #ff0000;
             color: #fff;
+            box-shadow: 0 0 8px #ff0000;
         }
 
         .status-bar {
@@ -554,25 +601,29 @@
                             const row = document.createElement('tr');
                             const isBasBinary = file.name.toUpperCase().endsWith('.BAS') && file.type === 'BASIC' && file.mode === 'BIN';
 
-                            let filenameCell;
+                            // Build actions column with download buttons
+                            let actionsCell;
                             if (isBasBinary) {
-                                // Show two download options for BASIC binary files
-                                filenameCell = `<td>
-                                    <a class="file-link" onclick="downloadFile('${file.name}', 'binary')">${file.name}</a>
-                                    <br><small style="color: #00cccc;">
-                                        [ <a class="file-link" onclick="downloadFile('${file.name}', 'ascii')" style="font-size: 0.9em;">Download as ASCII</a> ]
-                                    </small>
+                                // For BASIC binary files: show both download options
+                                actionsCell = `<td>
+                                    <button class="download-btn" onclick="downloadFile('${file.name}', 'binary')">DOWNLOAD</button>
+                                    <button class="download-ascii-btn" onclick="downloadFile('${file.name}', 'ascii')">DOWNLOAD ASCII</button>
+                                    <button class="delete-btn" onclick="deleteFile('${file.name}')">DELETE</button>
                                 </td>`;
                             } else {
-                                filenameCell = `<td><a class="file-link" onclick="downloadFile('${file.name}')">${file.name}</a></td>`;
+                                // For other files: show single download button
+                                actionsCell = `<td>
+                                    <button class="download-btn" onclick="downloadFile('${file.name}')">DOWNLOAD</button>
+                                    <button class="delete-btn" onclick="deleteFile('${file.name}')">DELETE</button>
+                                </td>`;
                             }
 
                             row.innerHTML = `
-                                ${filenameCell}
+                                <td>${file.name}</td>
                                 <td>${file.type}</td>
                                 <td>${file.mode}</td>
                                 <td>${file.size} bytes</td>
-                                <td><button class="delete-btn" onclick="deleteFile('${file.name}')">DELETE</button></td>
+                                ${actionsCell}
                             `;
                             tbody.appendChild(row);
                         });
