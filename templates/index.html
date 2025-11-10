@@ -216,20 +216,22 @@
             background: #330000;
             color: #ff0000;
             border: 1px solid #ff0000;
-            padding: 5px 10px;
-            font-size: 0.8em;
+            padding: 6px 12px;
+            font-size: 1.2em;
             margin: 2px;
             cursor: pointer;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
+            font-family: Arial, sans-serif;
+            font-weight: normal;
             border-radius: 3px;
             transition: all 0.3s;
+            line-height: 1;
         }
 
         .delete-btn:hover {
             background: #ff0000;
             color: #fff;
             box-shadow: 0 0 8px #ff0000;
+            transform: scale(1.1);
         }
 
         .status-bar {
@@ -650,13 +652,13 @@
                                 actionsCell = `<td>
                                     <button class="download-btn" onclick="downloadFile('${file.name}', 'binary')">DOWNLOAD</button>
                                     <button class="download-ascii-btn" onclick="downloadFile('${file.name}', 'ascii')">DOWNLOAD ASCII</button>
-                                    <button class="delete-btn" onclick="deleteFile('${file.name}')">DELETE</button>
+                                    <button class="delete-btn" onclick="deleteFile('${file.name}')" title="Delete file">🗑️</button>
                                 </td>`;
                             } else {
                                 // For other files: show single download button
                                 actionsCell = `<td>
                                     <button class="download-btn" onclick="downloadFile('${file.name}')">DOWNLOAD</button>
-                                    <button class="delete-btn" onclick="deleteFile('${file.name}')">DELETE</button>
+                                    <button class="delete-btn" onclick="deleteFile('${file.name}')" title="Delete file">🗑️</button>
                                 </td>`;
                             }
 
