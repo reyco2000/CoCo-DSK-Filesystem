@@ -176,22 +176,20 @@
             background: #003300;
             color: #00ff00;
             border: 1px solid #00ff00;
-            padding: 6px 12px;
-            font-size: 1.2em;
+            padding: 5px 10px;
+            font-size: 0.8em;
             margin: 2px;
             cursor: pointer;
-            font-family: Arial, sans-serif;
-            font-weight: normal;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
             border-radius: 3px;
             transition: all 0.3s;
-            line-height: 1;
         }
 
         .download-btn:hover {
             background: #00ff00;
             color: #000;
             box-shadow: 0 0 8px #00ff00;
-            transform: scale(1.1);
         }
 
         .download-ascii-btn {
@@ -199,7 +197,7 @@
             color: #0099ff;
             border: 1px solid #0099ff;
             padding: 5px 10px;
-            font-size: 0.85em;
+            font-size: 0.8em;
             margin: 2px;
             cursor: pointer;
             font-family: 'Courier New', monospace;
@@ -212,7 +210,6 @@
             background: #0099ff;
             color: #fff;
             box-shadow: 0 0 8px #0099ff;
-            transform: scale(1.05);
         }
 
         .delete-btn {
@@ -703,14 +700,14 @@
                             if (isBasBinary) {
                                 // For BASIC binary files: show both download options
                                 actionsCell = `<td>
-                                    <button class="download-btn" onclick="downloadFile('${file.name}', 'binary')" title="Download binary">⬇️</button>
-                                    <button class="download-ascii-btn" onclick="downloadFile('${file.name}', 'ascii')" title="Download as ASCII">⬇️ ASCII</button>
+                                    <button class="download-btn" onclick="downloadFile('${file.name}', 'binary')" title="Download binary">Download</button>
+                                    <button class="download-ascii-btn" onclick="downloadFile('${file.name}', 'ascii')" title="Download as ASCII">Download ASCII</button>
                                     <button class="delete-btn" onclick="deleteFile('${file.name}')" title="Delete file">🗑️</button>
                                 </td>`;
                             } else {
                                 // For other files: show single download button
                                 actionsCell = `<td>
-                                    <button class="download-btn" onclick="downloadFile('${file.name}')" title="Download file">⬇️</button>
+                                    <button class="download-btn" onclick="downloadFile('${file.name}')" title="Download file">Download</button>
                                     <button class="delete-btn" onclick="deleteFile('${file.name}')" title="Delete file">🗑️</button>
                                 </td>`;
                             }
