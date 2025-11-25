@@ -524,7 +524,7 @@ This project is open source and available under the MIT License.
 
 ## Version History
 
-### Version 1.1 (January 2025)
+### Version 1.1 (November 2025)
 - 🔧 **Real CoCo DECB behavior** - Granule allocation from granule 32, authentic padding
 - 📚 **Comprehensive documentation** - 1,250+ line technical specification
 - 📖 **Programmer's guide** - Concise reference with code examples
