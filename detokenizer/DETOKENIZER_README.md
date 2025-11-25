@@ -198,13 +198,11 @@ All documented commands are included:
 
 ## Known Limitations
 
-1. **First Line Number**: The first line sometimes shows an incorrect number (e.g., 8224) due to reading the link pointer. This doesn't affect the rest of the program.
+1. **Unknown Tokens**: Some extended/rare tokens may display as `{255-XX}` if not in the token table. These can be added as needed.
 
-2. **Unknown Tokens**: Some extended/rare tokens may display as `{255-XX}` if not in the token table. These can be added as needed.
+2. **Format Variations**: Some BASIC dialects or modified ROMs may use different token values.
 
-3. **Format Variations**: Some BASIC dialects or modified ROMs may use different token values.
-
-4. **GOTO/GOSUB**: Currently treated as single-byte token (GO=0x81), not fully handling the two-byte sequence for GOTO/GOSUB.
+3. **GOTO/GOSUB**: Currently treated as single-byte token (GO=0x81), not fully handling the two-byte sequence for GOTO/GOSUB.
 
 ## Technical Notes
 
@@ -217,13 +215,22 @@ The `is_tokenized_basic()` function checks:
 
 ### Detokenization Process
 
-1. Skip ML preamble if present (0xFF marker)
-2. Read link pointer (2 bytes)
-3. Read line number (2 bytes)
+1. Skip ML preamble if present (0xFF marker + 4 bytes = 5 bytes total)
+2. **First line after ML preamble**: Read line number (2 bytes) + tokenized data (NO link pointer)
+3. **Subsequent lines**: Read link pointer (2 bytes) + line number (2 bytes) + tokenized data
 4. Parse tokens and ASCII text until 0x00 terminator
 5. Handle quoted strings (preserve contents)
 6. Handle two-byte function tokens (0xFF prefix)
-7. Repeat until 0x00 0x00 end marker
+7. Skip line 0 if encountered (hidden system line)
+8. Repeat until 0x00 0x00 end marker or link pointer = 0x00 0x00
+
+### Important: ML Preamble Line Format
+
+When a file has an ML preamble (starts with 0xFF), the **first line** has a different structure:
+- **First line**: `[Line Number (2 bytes BE)][Tokenized Content][0x00 terminator]`
+- **All other lines**: `[Link Pointer (2 bytes BE)][Line Number (2 bytes BE)][Tokenized Content][0x00 terminator]`
+
+This is a critical difference that must be handled correctly to avoid reading garbage data.
 
 ## Future Enhancements
 

@@ -103,9 +103,13 @@ When saved with `CSAVE` or `CSAVEM`, files may have a 5-byte preamble:
 
 **Note**: Not all BASIC files have this preamble. Files created in memory or with SAVE may start directly with the program data.
 
+**CRITICAL**: When an ML preamble is present, the **first line** after the preamble has a **different structure** than subsequent lines (see Line Structure below).
+
 ### Line Structure
 
-Each line in memory has this format:
+**IMPORTANT**: Line structure differs depending on file format and position!
+
+#### Standard Line Format (files WITHOUT ML preamble, or lines AFTER the first line)
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -118,18 +122,34 @@ Each line in memory has this format:
 └──────────────────────────────────────────────────────────┘
 ```
 
+#### First Line Format (ONLY after ML preamble)
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ Offset │ Size │ Field Name      │ Description            │
+├────────┼──────┼─────────────────┼────────────────────────┤
+│ +0     │ 2    │ Line Number     │ 0-63999 (NO LINK PTR!) │
+│ +2     │ var  │ Tokenized Data  │ Tokens + ASCII         │
+│ +n     │ 1    │ Terminator      │ 0x00                   │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Key Difference**: The first line immediately following an ML preamble (0xFF header) does **NOT** have a link pointer. It starts directly with the line number. All subsequent lines use the standard format with link pointers.
+
 #### Link Pointer Details
 
 - **Format**: 16-bit big-endian address
 - **Purpose**: Points to the start of the next line in memory
 - **Special**: `0x00 0x00` indicates end of program
 - **On Disk**: Calculated when loading into memory
+- **First Line After ML Preamble**: Not present! (common source of detokenization bugs)
 
 #### Line Number Format
 
 - **Format**: 16-bit big-endian integer (0-63999)
-- **Range**: Typically 1-63999 (0 is special, rarely used)
+- **Range**: Typically 1-63999 (0 is special, often hidden/system line)
 - **Example**: `0x00 0x0A` = line 10, `0x03 0xE8` = line 1000
+- **Line 0**: May appear as first line after ML preamble; often contains hidden initialization code and should be skipped during detokenization
 
 ---
 
@@ -779,14 +799,13 @@ def detokenize_coco_basic(binary_data):
     # Initialize
     pos = 0
     output_lines = []
+    has_ml_preamble = False
+    first_line = True
 
     # Skip ML preamble if present
     if binary_data[0] == 0xFF:
         pos = 5  # Skip 5-byte preamble
-
-    # Skip leading zeros
-    while pos < len(binary_data) and binary_data[pos] == 0x00:
-        pos += 1
+        has_ml_preamble = True
 
     # Process each line
     while pos < len(binary_data):
@@ -796,16 +815,39 @@ def detokenize_coco_basic(binary_data):
             binary_data[pos + 1] == 0x00):
             break
 
-        # Read link pointer (skip it for file processing)
-        link_ptr = (binary_data[pos] << 8) | binary_data[pos + 1]
-        pos += 2
+        # CRITICAL: First line after ML preamble has NO link pointer!
+        if first_line and has_ml_preamble:
+            # First line: just line number, no link pointer
+            if pos + 2 > len(binary_data):
+                break
+            line_num = (binary_data[pos] << 8) | binary_data[pos + 1]
+            pos += 2
+            first_line = False
+        else:
+            # Standard line format: link pointer + line number
+            if pos + 4 > len(binary_data):
+                break
 
-        if link_ptr == 0:
-            break
+            # Read link pointer
+            link_ptr = (binary_data[pos] << 8) | binary_data[pos + 1]
+            pos += 2
 
-        # Read line number
-        line_num = (binary_data[pos] << 8) | binary_data[pos + 1]
-        pos += 2
+            if link_ptr == 0:
+                break
+
+            # Read line number
+            line_num = (binary_data[pos] << 8) | binary_data[pos + 1]
+            pos += 2
+            first_line = False
+
+        # Skip line 0 (often hidden system line)
+        if line_num == 0:
+            # Find terminator and skip this line
+            while pos < len(binary_data) and binary_data[pos] != 0x00:
+                pos += 1
+            if pos < len(binary_data):
+                pos += 1  # Skip terminator
+            continue
 
         # Build line text
         line_text = f"{line_num} "
@@ -924,9 +966,45 @@ def detokenize_coco_basic(binary_data):
 
 ## Common Pitfalls
 
-### Pitfall 1: Ignoring Link Pointers
+### Pitfall 1: Not Handling First Line After ML Preamble Correctly
 
-**Problem**: Reading line numbers directly without accounting for link pointers.
+**Problem**: Assuming all lines have link pointers, including the first line after an ML preamble.
+
+**Wrong**:
+```python
+if binary_data[0] == 0xFF:
+    pos = 5  # Skip preamble
+# Then always read: link_ptr, line_num for ALL lines
+link_ptr = (data[pos] << 8) | data[pos+1]  # BUG! First line has NO link!
+line_num = (data[pos+2] << 8) | data[pos+3]
+```
+
+**Result**: Reads line number as link pointer, reads tokenized data as line number, produces 0 bytes or garbage output.
+
+**Correct**:
+```python
+if binary_data[0] == 0xFF:
+    pos = 5
+    has_ml_preamble = True
+    first_line = True
+
+if first_line and has_ml_preamble:
+    # First line: NO link pointer, just line number
+    line_num = (data[pos] << 8) | data[pos+1]
+    pos += 2
+    first_line = False
+else:
+    # Standard lines: link pointer + line number
+    link_ptr = (data[pos] << 8) | data[pos+1]
+    line_num = (data[pos+2] << 8) | data[pos+3]
+    pos += 4
+```
+
+**This is the #1 most common bug in CoCo BASIC detokenizers!**
+
+### Pitfall 2: Ignoring Link Pointers (Standard Lines)
+
+**Problem**: Reading line numbers directly without accounting for link pointers on standard lines.
 
 **Wrong**:
 ```python
@@ -939,7 +1017,27 @@ link_ptr = (data[0] << 8) | data[1]  # Read and skip link pointer
 line_num = (data[2] << 8) | data[3]  # Now read line number
 ```
 
-### Pitfall 2: Tokenizing Inside Strings
+### Pitfall 3: Not Skipping Line 0
+
+**Problem**: Displaying line 0, which is often a hidden system/initialization line.
+
+**Wrong**:
+```python
+# Process all lines including line 0
+output_lines.append(f"{line_num} {content}")
+```
+
+**Correct**:
+```python
+if line_num == 0:
+    # Skip line 0 but continue processing
+    while data[pos] != 0x00:
+        pos += 1
+    pos += 1  # Skip terminator
+    continue
+```
+
+### Pitfall 4: Tokenizing Inside Strings
 
 **Problem**: Converting keywords inside quotes to tokens.
 
@@ -953,7 +1051,7 @@ line_num = (data[2] << 8) | data[3]  # Now read line number
 State check: if in_string: preserve_as_ascii()
 ```
 
-### Pitfall 3: Tokenizing After REM
+### Pitfall 5: Tokenizing After REM
 
 **Problem**: Tokenizing text in comments.
 
@@ -967,7 +1065,7 @@ REM GOTO 100 -> 0x82 0x81 0xA5 0x31 0x30 0x30  # NO!
 REM GOTO 100 -> 0x82 0x20 0x47 0x4F 0x54 0x4F 0x20 0x31 0x30 0x30
 ```
 
-### Pitfall 4: Endianness Confusion
+### Pitfall 6: Endianness Confusion
 
 **Problem**: Using little-endian for line numbers.
 
@@ -981,7 +1079,7 @@ line_num = data[0] | (data[1] << 8)  # Little-endian
 line_num = (data[0] << 8) | data[1]  # Big-endian
 ```
 
-### Pitfall 5: Missing Two-Byte Functions
+### Pitfall 7: Missing Two-Byte Functions
 
 **Problem**: Not recognizing 0xFF prefix for functions.
 
@@ -995,7 +1093,7 @@ line_num = (data[0] << 8) | data[1]  # Big-endian
 0xFF 0x81 -> Combined token for INT function
 ```
 
-### Pitfall 6: Assuming Fixed Line Length
+### Pitfall 8: Assuming Fixed Line Length
 
 **Problem**: Reading fixed-size chunks instead of using terminators.
 
@@ -1012,7 +1110,7 @@ while data[pos] != 0x00:
     pos += 1
 ```
 
-### Pitfall 7: Not Preserving Variable Names
+### Pitfall 9: Not Preserving Variable Names
 
 **Problem**: Treating variable names as keywords.
 
@@ -1026,7 +1124,7 @@ PRINTER -> PRINT + ER (trying to tokenize)  # NO!
 PRINTER -> 0x50 0x52 0x49 0x4E 0x54 0x45 0x52 (all ASCII)
 ```
 
-### Pitfall 8: Improper Spacing
+### Pitfall 10: Improper Spacing
 
 **Problem**: Missing or extra spaces around tokens.
 
@@ -1041,7 +1139,7 @@ PRINTER -> 0x50 0x52 0x49 0x4E 0x54 0x45 0x52 (all ASCII)
 10 PRINT "HELLO"  # Proper spacing
 ```
 
-### Pitfall 9: Forgetting Colon Handling
+### Pitfall 11: Forgetting Colon Handling
 
 **Problem**: Not recognizing colon as statement separator.
 
@@ -1055,7 +1153,7 @@ CLS:PRINT -> CLS : PRINT  # Extra spaces around colon
 CLS:PRINT -> CLS:PRINT  # No spaces around colon
 ```
 
-### Pitfall 10: Incomplete Token Tables
+### Pitfall 12: Incomplete Token Tables
 
 **Problem**: Missing extended or rare tokens.
 
@@ -1079,10 +1177,20 @@ This document provides a complete reference for understanding and implementing T
 ### Quick Reference Summary
 
 - **Token Range**: 0x80-0xFF (single-byte), 0xFF + 0x80-0xFF (two-byte functions)
-- **File Structure**: [Optional ML Preamble][Lines with link pointers][0x00 0x00 end]
-- **Line Format**: [Link(2)][LineNum(2)][Tokens+ASCII][0x00]
+- **File Structure**: [Optional ML Preamble][Lines][0x00 0x00 end]
+- **Line Format (standard)**: [Link(2)][LineNum(2)][Tokens+ASCII][0x00]
+- **Line Format (first after ML preamble)**: [LineNum(2)][Tokens+ASCII][0x00] - **NO LINK POINTER!**
 - **Special Cases**: REM, DATA, strings, variable names NOT tokenized
 - **Endianness**: Big-endian for all 16-bit values
+- **Line 0**: Often hidden/system line, should be skipped during detokenization
+
+### Critical Implementation Notes
+
+1. **ML Preamble Detection**: Check if first byte is 0xFF
+2. **First Line After Preamble**: Does NOT have a link pointer (most common bug!)
+3. **All Other Lines**: Have link pointer + line number structure
+4. **Line 0 Handling**: Skip line 0 but continue processing subsequent lines
+5. **Terminator**: Each line ends with 0x00, program ends with 0x00 0x00
 
 ### For AI Implementation
 
