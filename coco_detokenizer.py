@@ -104,17 +104,19 @@ def detokenize_line(line_bytes):
 def detokenize_file(path):
     data = Path(path).read_bytes()
     offset = 0
+    has_ml_preamble = False
     if data[0] == 0xFF:
         offset = 5
+        has_ml_preamble = True
 
     result = []
     first_line = True
     while True:
-        if offset + 2 > len(data):
-            break
-
-        # First line after ML preamble has no link pointer
-        if first_line:
+        # First line after ML preamble has NO link pointer, just [line number][content][00]
+        # All other lines have [link][line number][content][00]
+        if first_line and has_ml_preamble:
+            if offset + 2 > len(data):
+                break
             line_number = read_word_be(data, offset)
             start = offset + 2
             first_line = False
@@ -126,9 +128,16 @@ def detokenize_file(path):
             if next_line == 0:
                 break
             start = offset + 4
+            first_line = False
 
         if line_number == 0:
-            break
+            # Line 0 is often a hidden/system line, skip it but continue processing
+            try:
+                zero_pos = data.index(0, start)
+                offset = zero_pos + 1
+                continue
+            except ValueError:
+                break
 
         try:
             zero_pos = data.index(0, start)
