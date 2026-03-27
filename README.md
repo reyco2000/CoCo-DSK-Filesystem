@@ -1,6 +1,6 @@
 # TRS-80 Color Computer DSK/JVC File System Tool
 
-**Version 1.1** - Real CoCo DECB Behavior + Comprehensive Documentation!
+**Version 1.2** - OS9 Support + Navigation!
 
 A Python tool for managing TRS-80 Color Computer DSK/JVC disk images with authentic hardware behavior. This tool allows you to mount, inspect, and transfer files between Color Computer disk images and your PC, with a Norton Commander-style browser for easy navigation.
 
