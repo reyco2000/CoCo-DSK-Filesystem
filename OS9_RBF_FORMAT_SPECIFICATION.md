@@ -1258,6 +1258,16 @@ def parse_4byte(data):
     return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]
 ```
 
+### Navigating Hierarchical Directories
+
+Unlike DECB, OS-9 relies heavily on its hierarchical structure. An implementation should track its "Current Working Directory" (CWD):
+1. **Root Initiation**: During mount, parse `DD.DIR` from `LSN 0` and load its directory entries as the root. Note the starting LSN.
+2. **Changing Directories (`cd`)**:
+   - Locate the target `DIR.NM` in the loaded entries.
+   - Check the `FD.ATT` bit 7 to confirm it represents a directory (`0x80`).
+   - If `..` is queried, navigate the path stack downwards. 
+3. **Retrieval**: Once you change `current_dir_lsn`, utilize `_read_directory(lsn)` to cache its local directory entries.
+
 ### Full Implementation (Read/Write)
 
 For a full implementation, add:
@@ -1437,6 +1447,7 @@ For a full implementation, add:
 
 ## Revision History
 
+- **Version 1.2** (March 2026) - Add details highlighting dynamic hierarchical rendering, and updated `_read_directory(lsn)` capabilities in the provided tools (`coco_dsk_os9.py` and `coco_commander_v1.py`).
 - **Version 1.0** (2025) - Initial comprehensive documentation
 
 ---

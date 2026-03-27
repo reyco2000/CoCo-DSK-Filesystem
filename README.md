@@ -46,7 +46,7 @@ A Python tool for managing TRS-80 Color Computer DSK/JVC disk images with authen
 
 ### 1. CoCo Commander V1 - Norton Commander-style TUI
 
-**NEW in v1.0!** Enhanced text-based UI with integrated BASIC detokenization:
+**NEW in v1.2!** Full OS-9 `.vhd` support & nested directory navigation!
 
 ```bash
 python3 coco_commander_v1.py
@@ -54,12 +54,13 @@ python3 coco_commander_v1.py
 
 **Features:**
 - ✨ **BASIC Detokenization** - Automatically convert tokenized BASIC programs to readable text
+- 💿 **OS-9 (.vhd) Support** - Mount, browse, and extract files from OS-9 graphical disk images, inclusive of nested subdirectories!
 - 🎨 **Color-Coded Selection** - Green highlight for active panel, white for inactive
 - 📝 **Smart Filename Entry** - Cursor starts at end for quick editing
 - 🔄 **Enhanced Dialogs** - Improved Yes/No dialogs with button navigation
-- 🎯 **Dual-Pane Interface** - PC files ↔ DSK image side-by-side
+- 🎯 **Dual-Pane Interface** - PC files ↔ DSK/VHD image side-by-side
 - 📁 **Function Keys** - F2: Info | F3: View | F4: Edit | F5: Copy | F6: Rename | F7: Format | F8: Delete
-- ⌨️ **Intuitive Navigation** - Arrow keys and TAB for panel switching
+- ⌨️ **Intuitive Navigation** - Arrow keys, TAB, and ENTER (for directory diving)
 - 👁️ **Built-in Viewers** - Hex/text viewer and text editor
 - 🎨 **Norton Commander Style** - Familiar dual-pane file management
 
@@ -81,6 +82,13 @@ Traditional command-line interface for scripting and automation.
 - **Format new disks** - Create blank DSK/JVC images with custom geometries
 - **Free space calculation** - See available storage on disk images
 - **JVC header support** - Handles both raw DSK and JVC formats
+
+## What's New in Version 1.2
+
+### 💿 OS-9 (.vhd) Format & Directory Navigation
+Version 1.2 introduces comprehensive read-only support for OS-9 RBF file systems!
+- **Browse OS-9 Images**: You can now seamlessly navigate `.vhd` OS-9 disk images in `coco_commander_v1.py` alongside standard `.dsk` files.
+- **Nested Directories**: Enter nested directories logic (`.` and `..`), directly view subdirectories in the right-pane UI, and extract deep files directly.
 
 ## What's New in Version 1.1
 
@@ -132,12 +140,14 @@ Flagship feature with integrated BASIC detokenization:
 
 ### 📦 What's Included
 
-- `coco_commander_v1.py` - CoCo Commander with BASIC detokenization
+- `coco_commander_v1.py` - CoCo Commander with BASIC detokenization and OS-9 support
 - `coco_detokenizer.py` - Standalone BASIC detokenizer
-- `coco_dsk.py` - Command-line DSK tool and Python API with real CoCo behavior
+- `coco_dsk.py` - Command-line DSK tool and Python API with real CoCo DECB behavior
+- `coco_dsk_os9.py` - OS-9 RBF File System Tool API
 - `COCO_COMMANDER_GUIDE.md` - Complete user guide
 - `DSK_JVC_FORMAT_SPECIFICATION.md` - Complete technical specification (1,250+ lines)
 - `DSK_JVC_PROGRAMMER_GUIDE.md` - Concise programmer's reference
+- `OS9_RBF_FORMAT_SPECIFICATION.md` - Complete technical specification for OS-9
 
 ## Requirements
 
@@ -523,6 +533,11 @@ Maximum 72 files per disk. You'll need to use a new disk image.
 This project is open source and available under the MIT License.
 
 ## Version History
+
+### Version 1.2 (March 2026)
+- 💿 **OS-9 format support** - Seamless `.vhd` disk browsing, metadata parsing, and file extraction for CoCo Commander.
+- 📁 **Hierarchical Nav** - Dynamic OS-9 directory fetching logic and `[Enter]` to CD support.
+- 📚 **Comprehensive OS-9 documentation** - Added `OS9_RBF_FORMAT_SPECIFICATION.md`.
 
 ### Version 1.1 (November 2025)
 - 🔧 **Real CoCo DECB behavior** - Granule allocation from granule 32, authentic padding

@@ -132,6 +132,9 @@ class OS9Image:
         self.descriptor = OS9DiskDescriptor()
         self.allocation_map = bytearray()
         self.root_dir_entries = []
+        self.current_dir_entries = []
+        self.current_dir_lsn = 0
+        self.cwd_path = "/"
 
     def mount(self) -> bool:
         """Mount (open and parse) an OS-9 disk image file"""
@@ -147,7 +150,10 @@ class OS9Image:
             self._read_allocation_map()
 
             # Read root directory
-            self._read_root_directory()
+            self.current_dir_lsn = self.descriptor.dd_dir
+            self.root_dir_entries = self._read_directory(self.descriptor.dd_dir)
+            self.current_dir_entries = self.root_dir_entries
+            self.cwd_path = "/"
 
             return True
         except Exception as e:
@@ -290,27 +296,70 @@ class OS9Image:
 
         return free_count
 
-    def _read_root_directory(self):
-        """Read root directory entries"""
-        self.root_dir_entries = []
+    def _read_directory(self, dir_fd_lsn: int) -> List[OS9DirectoryEntry]:
+        """Read directory entries from a directory file descriptor LSN"""
+        entries = []
+        dir_fd = self._read_file_descriptor(dir_fd_lsn)
+        if not dir_fd:
+            return entries
 
-        # Read root directory file descriptor first
-        root_fd = self._read_file_descriptor(self.descriptor.dd_dir)
-        if not root_fd:
-            print("Warning: Could not read root directory file descriptor")
-            return
+        dir_data = self._read_file_data(dir_fd)
 
-        # Read directory data via segment list
-        dir_data = self._read_file_data(root_fd)
-
-        # Parse directory entries (32 bytes each)
         offset = 0
         while offset + 32 <= len(dir_data):
             entry_data = dir_data[offset:offset + 32]
+            if len(entry_data) < 32:
+                break
+                
             entry = self._parse_directory_entry(entry_data)
             if entry:
-                self.root_dir_entries.append(entry)
+                entries.append(entry)
             offset += 32
+            
+        return entries
+
+    def change_directory(self, dirname: str) -> bool:
+        """Change current directory"""
+        if dirname == "/":
+            self.current_dir_lsn = self.descriptor.dd_dir
+            self.current_dir_entries = self.root_dir_entries
+            self.cwd_path = "/"
+            return True
+            
+        # Find the directory entry
+        entry = None
+        for e in self.current_dir_entries:
+            if e.dir_nm.upper() == dirname.upper() or e.dir_nm == dirname:
+                entry = e
+                break
+                
+        if not entry:
+            return False
+            
+        # Verify it is a directory
+        fd = self._read_file_descriptor(entry.dir_fd)
+        if not fd or not (fd.fd_att & 0x80):
+            return False
+            
+        # Change to it
+        self.current_dir_lsn = entry.dir_fd
+        self.current_dir_entries = self._read_directory(entry.dir_fd)
+        
+        if dirname == "..":
+            if self.cwd_path != "/":
+                parts = self.cwd_path.rstrip('/').split('/')
+                if len(parts) > 1:
+                    parts.pop()
+                    self.cwd_path = "/".join(parts) if len(parts) > 1 else "/"
+                else:
+                    self.cwd_path = "/"
+        elif dirname != ".":
+            if self.cwd_path == "/":
+                self.cwd_path = f"/{dirname}"
+            else:
+                self.cwd_path = f"{self.cwd_path}/{dirname}"
+                
+        return True
 
     def _parse_directory_entry(self, data: bytes) -> Optional[OS9DirectoryEntry]:
         """Parse a 32-byte directory entry"""
@@ -338,10 +387,6 @@ class OS9Image:
 
         # Decode filename
         filename = filename_bytes[:name_end].decode('ascii', errors='ignore').rstrip('\x00')
-
-        # Skip "." and ".." entries for cleaner output (optional)
-        if filename in [".", ".."]:
-            return None
 
         # Parse attributes (1 byte at offset 28)
         dir_at = data[28]
@@ -417,11 +462,11 @@ class OS9Image:
 
     def list_files(self, show_details: bool = False):
         """Display directory listing"""
-        if not self.root_dir_entries:
-            print("No files found in root directory.")
+        if not self.current_dir_entries:
+            print("No files found in directory.")
             return
 
-        print(f"\nDirectory of {self.filename}")
+        print(f"\nDirectory of {self.filename} ({self.cwd_path})")
         print(f"Disk: {self.descriptor.dd_nam}")
         print("=" * 80)
 
@@ -429,7 +474,7 @@ class OS9Image:
             print(f"{'Filename':<28} {'Type':<5} {'Size':<10} {'Modified':<10} {'Attrs'}")
             print("-" * 80)
 
-            for entry in self.root_dir_entries:
+            for entry in self.current_dir_entries:
                 # Read file descriptor to get size and date
                 fd = self._read_file_descriptor(entry.dir_fd)
                 if fd:
@@ -453,11 +498,11 @@ class OS9Image:
         else:
             print(f"{'Filename':<28} {'FD LSN':<8} {'Attributes'}")
             print("-" * 80)
-            for entry in self.root_dir_entries:
+            for entry in self.current_dir_entries:
                 print(entry)
 
         print("-" * 80)
-        print(f"Total files: {len(self.root_dir_entries)}")
+        print(f"Total files: {len(self.current_dir_entries)}")
 
         # Show free space
         total_clusters = self.descriptor.dd_tot // self.descriptor.dd_bit
@@ -471,7 +516,7 @@ class OS9Image:
         """Extract a file from the OS-9 disk to PC"""
         # Find file in directory
         entry = None
-        for e in self.root_dir_entries:
+        for e in self.current_dir_entries:
             if e.dir_nm.upper() == filename.upper():
                 entry = e
                 break

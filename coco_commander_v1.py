@@ -24,6 +24,12 @@ try:
 except ImportError:
     DETOKENIZER_AVAILABLE = False
 
+try:
+    from coco_dsk_os9 import OS9Image
+    OS9_AVAILABLE = True
+except ImportError:
+    OS9_AVAILABLE = False
+
 
 class FilePanel:
     """Base class for file browser panels"""
@@ -186,15 +192,26 @@ class DSKPanel(FilePanel):
 
     def __init__(self, window):
         super().__init__(window, "DSK Image: [None Loaded]")
-        self.dsk: Optional[DSKImage] = None
+        self.dsk = None
         self.dsk_path: Optional[Path] = None
+        self.is_os9 = False
 
     def load_dsk(self, dsk_path: Path) -> bool:
         """Load a DSK image"""
         try:
+            if OS9_AVAILABLE and dsk_path.suffix.lower() == '.vhd':
+                self.dsk = OS9Image(str(dsk_path))
+                if self.dsk.mount():
+                    self.dsk_path = dsk_path
+                    self.is_os9 = True
+                    self.title = f"OS9 Image: {dsk_path.name}"
+                    self.refresh()
+                    return True
+
             self.dsk = DSKImage(str(dsk_path))
             if self.dsk.mount():
                 self.dsk_path = dsk_path
+                self.is_os9 = False
                 self.title = f"DSK Image: {dsk_path.name}"
                 self.refresh()
                 return True
@@ -207,37 +224,53 @@ class DSKPanel(FilePanel):
         self.items = []
 
         if self.dsk:
-            for entry in self.dsk.directory:
-                full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
+            if getattr(self, 'is_os9', False):
+                for entry in self.dsk.current_dir_entries:
+                    fd = self.dsk._read_file_descriptor(entry.dir_fd)
+                    size = fd.fd_siz if fd else 0
+                    self.items.append((entry.dir_nm, entry, size))
+            else:
+                for entry in self.dsk.directory:
+                    full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
 
-                # Calculate file size from granule chain
-                chain = self.dsk._get_granule_chain(entry.first_granule)
-                size = 0
-                for granule_num, sectors_used in chain:
-                    size += sectors_used * self.dsk.SECTOR_SIZE
+                    # Calculate file size from granule chain
+                    chain = self.dsk._get_granule_chain(entry.first_granule)
+                    size = 0
+                    for granule_num, sectors_used in chain:
+                        size += sectors_used * self.dsk.SECTOR_SIZE
 
-                # Adjust for last sector bytes
-                if entry.last_sector_bytes > 0 and size > 0:
-                    full_sectors = (size // self.dsk.SECTOR_SIZE) - 1
-                    size = (full_sectors * self.dsk.SECTOR_SIZE) + entry.last_sector_bytes
+                    # Adjust for last sector bytes
+                    if entry.last_sector_bytes > 0 and size > 0:
+                        full_sectors = (size // self.dsk.SECTOR_SIZE) - 1
+                        size = (full_sectors * self.dsk.SECTOR_SIZE) + entry.last_sector_bytes
 
-                self.items.append((full_name, entry, size))
+                    self.items.append((full_name, entry, size))
 
     def draw(self, is_active: bool):
         """Draw panel contents"""
         self.window.erase()
+        
+        if getattr(self, 'is_os9', False) and self.dsk:
+            self.title = f"OS9: {self.dsk_path.name} {self.dsk.cwd_path}"
+            
         self.draw_border(is_active)
 
         height, width = self.window.getmaxyx()
 
         # Draw disk info
         if self.dsk:
-            free_granules = sum(1 for g in self.dsk.fat if g == 0xFF)
-            free_kb = (free_granules * self.dsk.GRANULE_SIZE) / 1024
-            info_str = f"Files: {len(self.items)} | Free: {free_kb:.1f}KB"
+            if getattr(self, 'is_os9', False):
+                free_clusters = self.dsk._get_free_cluster_count()
+                cluster_size = self.dsk.descriptor.dd_bit * self.dsk.SECTOR_SIZE
+                free_kb = (free_clusters * cluster_size) / 1024
+                info_str = f"Files: {len(self.items)} | Free: {free_kb:.1f}KB"
+            else:
+                free_granules = sum(1 for g in self.dsk.fat if g == 0xFF)
+                free_kb = (free_granules * self.dsk.GRANULE_SIZE) / 1024
+                info_str = f"Files: {len(self.items)} | Free: {free_kb:.1f}KB"
             self.window.addstr(1, 2, info_str[:width-4], curses.A_BOLD)
         else:
-            self.window.addstr(1, 2, "No DSK image loaded", curses.A_DIM)
+            self.window.addstr(1, 2, "No Disk image loaded", curses.A_DIM)
 
         # Draw file listing
         if not self.dsk:
@@ -253,18 +286,33 @@ class DSKPanel(FilePanel):
             name, entry, size = self.items[list_index]
             y_pos = i + 3
 
-            # Format line with type and size
-            type_names = {0x00: "BAS", 0x01: "DAT", 0x02: "ML", 0x03: "TXT"}
-            type_str = type_names.get(entry.file_type, "???")
-            mode_str = "A" if entry.ascii_flag == 0xFF else "B"
-
             size_kb = size / 1024
             if size_kb < 1:
                 size_str = f"{size}B"
             else:
                 size_str = f"{size_kb:.1f}K"
 
-            line = f" {name:<{width-20}} {type_str} {mode_str} {size_str:>7}"
+            if getattr(self, 'is_os9', False):
+                fd = self.dsk._read_file_descriptor(entry.dir_fd)
+                is_dir = bool(fd and fd.fd_att & 0x80)
+                type_str = "DIR " if is_dir else "FILE"
+                
+                display_name = f"[{name}]" if is_dir else name
+                
+                attrs = []
+                if entry.dir_at & 0x02: attrs.append("W")
+                if entry.dir_at & 0x01: attrs.append("R")
+                if entry.dir_at & 0x08: attrs.append("PE")
+                mode_str = "".join(attrs).ljust(3)
+                
+                line = f" {display_name:<{width-20}} {type_str:4} {mode_str:3} {size_str:>8}"
+            else:
+                # Format line with type and size
+                type_names = {0x00: "BAS", 0x01: "DAT", 0x02: "ML", 0x03: "TXT"}
+                type_str = type_names.get(entry.file_type, "???")
+                mode_str = "A" if entry.ascii_flag == 0xFF else "B"
+
+                line = f" {name:<{width-20}} {type_str} {mode_str} {size_str:>8}"
 
             # Truncate if too long
             if len(line) > width - 4:
@@ -502,9 +550,18 @@ class CoCoCommander:
             entry = self.dsk_panel.get_selected_entry()
             if not entry or not self.dsk_panel.dsk:
                 return
-            data = self.dsk_panel.dsk.extract_file(entry)
-            full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
-            self.view_data(full_name, data)
+
+            if getattr(self.dsk_panel, 'is_os9', False):
+                fd = self.dsk_panel.dsk._read_file_descriptor(entry.dir_fd)
+                if fd and not (fd.fd_att & 0x80):  # Not a directory
+                    data = self.dsk_panel.dsk._read_file_data(fd)
+                    self.view_data(entry.dir_nm, data)
+                else:
+                    self.show_message("Cannot view directory", error=True)
+            else:
+                data = self.dsk_panel.dsk.extract_file(entry)
+                full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
+                self.view_data(full_name, data)
 
     def view_file(self, file_path: Path):
         """View PC file contents"""
@@ -575,6 +632,10 @@ class CoCoCommander:
                 self.show_message("No DSK image loaded.\nLoad a DSK file first.", error=True)
                 return
 
+            if getattr(self.dsk_panel, 'is_os9', False):
+                self.show_message("Writing to OS9 images is not currently supported.", error=True)
+                return
+
             item = self.pc_panel.get_selected_item()
             if not item:
                 return
@@ -623,20 +684,28 @@ class CoCoCommander:
             if not entry or not self.dsk_panel.dsk:
                 return
 
-            full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
-
-            # Check if it's a BASIC file (type 0x00)
-            is_basic = entry.file_type == 0x00
-            detokenize = False
-
-            # Ask if user wants to detokenize BASIC files
-            if is_basic and DETOKENIZER_AVAILABLE:
-                result = self.yes_no_dialog("BASIC File Detected",
-                                           f"File: {full_name}\nFile Type: BASIC\n\nDetokenize to readable text?",
-                                           default=True)
-                if result is None:  # User cancelled
+            if getattr(self.dsk_panel, 'is_os9', False):
+                full_name = entry.dir_nm
+                fd = self.dsk_panel.dsk._read_file_descriptor(entry.dir_fd)
+                if fd and (fd.fd_att & 0x80):
+                    self.show_message("Cannot copy directory.", error=True)
                     return
-                detokenize = result
+                detokenize = False
+            else:
+                full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
+
+                # Check if it's a BASIC file (type 0x00)
+                is_basic = entry.file_type == 0x00
+                detokenize = False
+
+                # Ask if user wants to detokenize BASIC files
+                if is_basic and DETOKENIZER_AVAILABLE:
+                    result = self.yes_no_dialog("BASIC File Detected",
+                                               f"File: {full_name}\nFile Type: BASIC\n\nDetokenize to readable text?",
+                                               default=True)
+                    if result is None:  # User cancelled
+                        return
+                    detokenize = result
 
             # Ask for PC filename
             default_name = full_name.lower()
@@ -653,22 +722,30 @@ class CoCoCommander:
             output_path = self.pc_panel.current_path / pc_name
 
             try:
-                # Copy file from DSK
-                if self.dsk_panel.dsk.copy_to_pc(full_name, str(output_path)):
-                    # If detokenize was requested, process the file
-                    if detokenize:
-                        try:
-                            detokenized = detokenize_file(str(output_path))
-                            Path(output_path).write_text(detokenized, encoding='utf-8')
-                            self.show_message(f"File downloaded & detokenized:\n{pc_name}")
-                        except Exception as e:
-                            self.show_message(f"Downloaded but detokenization failed:\n{e}", error=True)
-                    else:
+                if getattr(self.dsk_panel, 'is_os9', False):
+                    # Copy file from OS9
+                    if self.dsk_panel.dsk.extract_file(full_name, str(output_path)):
                         self.show_message(f"File downloaded:\n{pc_name}")
-
-                    self.pc_panel.refresh()
+                        self.pc_panel.refresh()
+                    else:
+                        self.show_message("Download failed!", error=True)
                 else:
-                    self.show_message("Download failed!", error=True)
+                    # Copy file from DSK
+                    if self.dsk_panel.dsk.copy_to_pc(full_name, str(output_path)):
+                        # If detokenize was requested, process the file
+                        if detokenize:
+                            try:
+                                detokenized = detokenize_file(str(output_path))
+                                Path(output_path).write_text(detokenized, encoding='utf-8')
+                                self.show_message(f"File downloaded & detokenized:\n{pc_name}")
+                            except Exception as e:
+                                self.show_message(f"Downloaded but detokenization failed:\n{e}", error=True)
+                        else:
+                            self.show_message(f"File downloaded:\n{pc_name}")
+
+                        self.pc_panel.refresh()
+                    else:
+                        self.show_message("Download failed!", error=True)
             except Exception as e:
                 self.show_message(f"Error downloading file:\n{e}", error=True)
 
@@ -743,6 +820,10 @@ class CoCoCommander:
             # Delete DSK file
             entry = self.dsk_panel.get_selected_entry()
             if not entry or not self.dsk_panel.dsk:
+                return
+
+            if getattr(self.dsk_panel, 'is_os9', False):
+                self.show_message("Deleting from OS9 images is not currently supported.", error=True)
                 return
 
             full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
@@ -937,6 +1018,10 @@ class CoCoCommander:
         if not self.dsk_panel.dsk:
             return
 
+        if getattr(self.dsk_panel, 'is_os9', False):
+            self.show_message("Renaming in OS9 images is not currently supported.", error=True)
+            return
+
         entry = self.dsk_panel.get_selected_entry()
         if not entry:
             return
@@ -1023,42 +1108,82 @@ class CoCoCommander:
             if self.dsk_panel.dsk:
                 entry = self.dsk_panel.get_selected_entry()
                 if entry:
-                    full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
+                    if getattr(self.dsk_panel, 'is_os9', False):
+                        full_name = entry.dir_nm
+                        fd = self.dsk_panel.dsk._read_file_descriptor(entry.dir_fd)
+                        is_dir = bool(fd and fd.fd_att & 0x80)
+                        
+                        info_win.addstr(y, 2, f"OS9 File: {full_name}", curses.A_BOLD)
+                        y += 2
+                        info_win.addstr(y, 2, f"Type: {'Directory' if is_dir else 'File'}")
+                        y += 1
+                        
+                        attrs = []
+                        if entry.dir_at & 0x02: attrs.append("Write")
+                        if entry.dir_at & 0x01: attrs.append("Read")
+                        if entry.dir_at & 0x08: attrs.append("Exec")
+                        info_win.addstr(y, 2, f"Permissions: {', '.join(attrs) if attrs else 'None'}")
+                        y += 1
+                        
+                        if fd:
+                            date_str = f"{fd.fd_dat[0]:02d}/{fd.fd_dat[1]:02d}/{fd.fd_dat[2]:02d}" if len(fd.fd_dat) >= 3 else "Unknown"
+                            info_win.addstr(y, 2, f"Modified: {date_str}")
+                            y += 1
+                            info_win.addstr(y, 2, f"Size: {fd.fd_siz} bytes")
+                            y += 1
+                            info_win.addstr(y, 2, f"FD Sector: {entry.dir_fd}")
+                            y += 2
+                    else:
+                        full_name = f"{entry.filename}.{entry.extension}" if entry.extension else entry.filename
 
-                    type_names = {0x00: "BASIC", 0x01: "DATA", 0x02: "Machine Language", 0x03: "TEXT"}
-                    type_str = type_names.get(entry.file_type, f"Unknown ({entry.file_type})")
-                    mode_str = "ASCII" if entry.ascii_flag == 0xFF else "Binary"
+                        type_names = {0x00: "BASIC", 0x01: "DATA", 0x02: "Machine Language", 0x03: "TEXT"}
+                        type_str = type_names.get(entry.file_type, f"Unknown ({entry.file_type})")
+                        mode_str = "ASCII" if entry.ascii_flag == 0xFF else "Binary"
 
-                    info_win.addstr(y, 2, f"DSK File: {full_name}", curses.A_BOLD)
-                    y += 2
-                    info_win.addstr(y, 2, f"Type: {type_str}")
-                    y += 1
-                    info_win.addstr(y, 2, f"Mode: {mode_str}")
-                    y += 1
-                    info_win.addstr(y, 2, f"First Granule: {entry.first_granule}")
-                    y += 1
-                    info_win.addstr(y, 2, f"Last Sector Bytes: {entry.last_sector_bytes}")
-                    y += 2
+                        info_win.addstr(y, 2, f"DSK File: {full_name}", curses.A_BOLD)
+                        y += 2
+                        info_win.addstr(y, 2, f"Type: {type_str}")
+                        y += 1
+                        info_win.addstr(y, 2, f"Mode: {mode_str}")
+                        y += 1
+                        info_win.addstr(y, 2, f"First Granule: {entry.first_granule}")
+                        y += 1
+                        info_win.addstr(y, 2, f"Last Sector Bytes: {entry.last_sector_bytes}")
+                        y += 2
 
-                    # Show granule chain
-                    chain = self.dsk_panel.dsk._get_granule_chain(entry.first_granule)
-                    granule_nums = ', '.join(str(g) for g, _ in chain)
-                    info_win.addstr(y, 2, f"Granule Chain ({len(chain)} granules):", curses.A_BOLD)
-                    y += 1
-                    info_win.addstr(y, 2, granule_nums)
-                    y += 2
+                        # Show granule chain
+                        chain = self.dsk_panel.dsk._get_granule_chain(entry.first_granule)
+                        granule_nums = ', '.join(str(g) for g, _ in chain)
+                        info_win.addstr(y, 2, f"Granule Chain ({len(chain)} granules):", curses.A_BOLD)
+                        y += 1
+                        info_win.addstr(y, 2, granule_nums)
+                        y += 2
 
                 # Disk statistics
-                free_granules = sum(1 for g in self.dsk_panel.dsk.fat if g == 0xFF)
-                used_granules = 68 - free_granules
+                if getattr(self.dsk_panel, 'is_os9', False):
+                    total_clusters = self.dsk_panel.dsk.descriptor.dd_tot // self.dsk_panel.dsk.descriptor.dd_bit
+                    free_clusters = self.dsk_panel.dsk._get_free_cluster_count()
+                    used_clusters = total_clusters - free_clusters
+                    cluster_size = self.dsk_panel.dsk.descriptor.dd_bit * self.dsk_panel.dsk.SECTOR_SIZE
+                    
+                    info_win.addstr(y, 2, "Disk Statistics:", curses.A_BOLD)
+                    y += 1
+                    info_win.addstr(y, 2, f"Total Clusters: {total_clusters}")
+                    y += 1
+                    info_win.addstr(y, 2, f"Used: {used_clusters} ({used_clusters * cluster_size} bytes)")
+                    y += 1
+                    info_win.addstr(y, 2, f"Free: {free_clusters} ({free_clusters * cluster_size} bytes)")
+                else:
+                    free_granules = sum(1 for g in self.dsk_panel.dsk.fat if g == 0xFF)
+                    used_granules = 68 - free_granules
 
-                info_win.addstr(y, 2, "Disk Statistics:", curses.A_BOLD)
-                y += 1
-                info_win.addstr(y, 2, f"Total Granules: 68")
-                y += 1
-                info_win.addstr(y, 2, f"Used: {used_granules} ({used_granules * 2304} bytes)")
-                y += 1
-                info_win.addstr(y, 2, f"Free: {free_granules} ({free_granules * 2304} bytes)")
+                    info_win.addstr(y, 2, "Disk Statistics:", curses.A_BOLD)
+                    y += 1
+                    info_win.addstr(y, 2, f"Total Granules: 68")
+                    y += 1
+                    info_win.addstr(y, 2, f"Used: {used_granules} ({used_granules * 2304} bytes)")
+                    y += 1
+                    info_win.addstr(y, 2, f"Free: {free_granules} ({free_granules * 2304} bytes)")
 
         info_win.addstr(screen_h - 8, 2, "Press any key to close...", curses.A_DIM)
         info_win.refresh()
@@ -1174,14 +1299,26 @@ class CoCoCommander:
         if self.active_panel == 0:
             # PC panel - navigate into directory or load DSK
             result = self.pc_panel.navigate_into()
-            if result and result.suffix.lower() in ('.dsk', '.jvc'):
+            if result and result.suffix.lower() in ('.dsk', '.jvc', '.vhd'):
                 # Try to load DSK image
                 if self.dsk_panel.load_dsk(result):
                     self.show_message(f"Loaded DSK image:\n{result.name}")
                 else:
                     self.show_message(f"Failed to load DSK:\n{result.name}", error=True)
         else:
-            # DSK panel - show info
+            # DSK panel - handle directory navigation or show info
+            if getattr(self.dsk_panel, 'is_os9', False):
+                entry = self.dsk_panel.get_selected_entry()
+                if entry:
+                    fd = self.dsk_panel.dsk._read_file_descriptor(entry.dir_fd)
+                    if fd and (fd.fd_att & 0x80):
+                        # It's a directory, try to navigate into it
+                        if self.dsk_panel.dsk.change_directory(entry.dir_nm):
+                            self.dsk_panel.selected_index = 0
+                            self.dsk_panel.scroll_offset = 0
+                            self.dsk_panel.refresh()
+                            return
+            # If not navigating, show info
             self.handle_f2_info()
 
     def run(self):
